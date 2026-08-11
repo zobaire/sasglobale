@@ -6,3 +6,10 @@ memory_data/
 .venv/
 venv/
 *.ppn
+
+# scratch/debug files
+test_spot.py
+check_spot_debug.py
+out.txt
+spotify_token.json
+*.log

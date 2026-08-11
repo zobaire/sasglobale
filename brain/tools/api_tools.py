@@ -24,13 +24,13 @@ def _load_env() -> dict[str, str]:
 
 # --- Spotify ---
 
-def spotify_control(action: str) -> str:
-    """Control Spotify playback: play, pause, next, previous."""
+def _spotify_token() -> tuple[str, str | None]:
+    """Return (access_token, error). Reads credentials + refreshes token."""
     env = _load_env()
     client_id = env.get("SPOTIFY_CLIENT_ID", "")
     client_secret = env.get("SPOTIFY_CLIENT_SECRET", "")
     if not client_id or not client_secret:
-        return "Spotify not configured — missing SPOTIFY_CLIENT_ID or SPOTIFY_CLIENT_SECRET."
+        return "", "Spotify not configured — missing SPOTIFY_CLIENT_ID or SPOTIFY_CLIENT_SECRET."
 
     token_path = _MEMORY_DIR / "spotify_token.json"
     refresh_token = ""
@@ -41,7 +41,7 @@ def spotify_control(action: str) -> str:
             pass
 
     if not refresh_token:
-        return "Spotify not authenticated. Need OAuth refresh token."
+        return "", "Spotify not authenticated. Need OAuth refresh token."
 
     try:
         r = requests.post("https://accounts.spotify.com/api/token", data={
@@ -49,10 +49,17 @@ def spotify_control(action: str) -> str:
             "refresh_token": refresh_token,
         }, auth=(client_id, client_secret), timeout=15)
         if r.status_code != 200:
-            return f"Spotify auth failed: {r.status_code}"
-        access_token = r.json()["access_token"]
+            return "", f"Spotify auth failed: {r.status_code}"
+        return r.json()["access_token"], None
     except Exception as e:
-        return f"Spotify auth error: {e}"
+        return "", f"Spotify auth error: {e}"
+
+
+def spotify_control(action: str) -> str:
+    """Control Spotify playback: play, pause, next, previous."""
+    access_token, err = _spotify_token()
+    if err:
+        return err
 
     headers = {"Authorization": f"Bearer {access_token}"}
     action = action.lower().strip()
@@ -70,15 +77,74 @@ def spotify_control(action: str) -> str:
 
     method, url = endpoints[action]
     try:
-        if method == "PUT":
-            r = requests.put(url, headers=headers, timeout=10)
-        else:
-            r = requests.post(url, headers=headers, timeout=10)
+        r = requests.put(url, headers=headers, timeout=10) if method == "PUT" \
+            else requests.post(url, headers=headers, timeout=10)
         if r.status_code in (200, 202, 204):
             return f"Spotify: {action} OK"
         return f"Spotify {action}: {r.status_code}"
     except Exception as e:
         return f"Spotify error: {e}"
+
+
+def spotify_search(query: str, limit: int = 5) -> str:
+    """Search Spotify for a song/artist. Returns a readable list."""
+    access_token, err = _spotify_token()
+    if err:
+        return err
+
+    headers = {"Authorization": f"Bearer {access_token}"}
+    try:
+        r = requests.get(
+            "https://api.spotify.com/v1/search",
+            params={"q": query, "type": "track", "limit": limit},
+            headers=headers, timeout=15)
+        if r.status_code != 200:
+            return f"Spotify search error: {r.status_code}"
+        items = r.json().get("tracks", {}).get("items", [])
+        if not items:
+            return f"No Spotify tracks found for: {query}"
+        lines = []
+        for i, t in enumerate(items, 1):
+            artists = ", ".join(a["name"] for a in t["artists"])
+            lines.append(f"{i}. {t['name']} — {artists} ({t['duration_ms'] // 60000}:{((t['duration_ms'] // 1000) % 60):02d})")
+        return "Found:\n" + "\n".join(lines)
+    except Exception as e:
+        return f"Spotify search error: {e}"
+
+
+def spotify_play_song(query: str) -> str:
+    """Search for a song and play the top matching track."""
+    access_token, err = _spotify_token()
+    if err:
+        return err
+
+    headers = {"Authorization": f"Bearer {access_token}"}
+    try:
+        r = requests.get(
+            "https://api.spotify.com/v1/search",
+            params={"q": query, "type": "track", "limit": 1},
+            headers=headers, timeout=15)
+        if r.status_code != 200:
+            return f"Spotify search error: {r.status_code}"
+        items = r.json().get("tracks", {}).get("items", [])
+        if not items:
+            return f"No Spotify track found for: {query}"
+
+        track = items[0]
+        uri = track["uri"]
+        name = track["name"]
+        artists = ", ".join(a["name"] for a in track["artists"])
+
+        # Queue it by playing the URI on the active device
+        p = requests.put(
+            "https://api.spotify.com/v1/me/player/play",
+            json={"uris": [uri]},
+            headers=headers, timeout=10)
+        if p.status_code in (200, 202, 204):
+            return f"Now playing: {name} — {artists}"
+        return f"Spotify play error: {p.status_code} ({name} not started)"
+    except Exception as e:
+        return f"Spotify play error: {e}"
 
 
 # --- Discord ---

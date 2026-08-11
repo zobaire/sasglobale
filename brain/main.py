@@ -281,6 +281,7 @@ def _handle_typed_command(text: str) -> None:
 def main() -> None:
     import webbrowser
     from brain.web import start_web_background
+    from brain.discord_bot import start_discord_bot
 
     cfg = load_config()
     host = cfg.get("ui", {}).get("host", "0.0.0.0")
@@ -294,6 +295,7 @@ def main() -> None:
     print("=" * 50)
 
     start_web_background(port=port, host=host)
+    start_discord_bot()
     threading.Thread(target=_keyboard_listener, daemon=True).start()
 
     if not os.environ.get("LYDIA_OPEN_UI") == "0":

@@ -16,7 +16,10 @@ from brain.tools.system import (
     get_system_info, set_brightness, lock_screen, power_command,
     show_notification, set_timer,
 )
-from brain.tools.api_tools import spotify_control, discord_check, tebex_check, check_business
+from brain.tools.api_tools import (
+    spotify_control, spotify_search, spotify_play_song,
+    discord_check, tebex_check, check_business,
+)
 from brain.tools.project import (
     read_project, grep_project, read_symbols,
     run_shell, run_tests, run_linter, edit_file,
@@ -65,6 +68,8 @@ TOOL_MAP: dict[str, Callable[[dict], str]] = {
     "set_timer": lambda a: set_timer(int(a["seconds"]), a.get("message", "Timer done!")),
     # API integrations
     "spotify_control": lambda a: spotify_control(a["action"]),
+    "spotify_search": lambda a: spotify_search(a["query"], int(a.get("limit", 5))),
+    "spotify_play_song": lambda a: spotify_play_song(a["query"]),
     "discord_check": lambda _: discord_check(),
     "tebex_check": lambda _: tebex_check(),
     "check_business": lambda _: check_business(),
@@ -294,6 +299,19 @@ TOOL_SCHEMAS: list[dict] = [
         "parameters": {"type": "object", "properties": {
             "action": {"type": "string"}},
             "required": ["action"]}}},
+    {"type": "function", "function": {
+        "name": "spotify_search",
+        "description": "Search Spotify for a song or artist. Returns a readable list of the top matches.",
+        "parameters": {"type": "object", "properties": {
+            "query": {"type": "string"},
+            "limit": {"type": "integer"}},
+            "required": ["query"]}}},
+    {"type": "function", "function": {
+        "name": "spotify_play_song",
+        "description": "Search Spotify for a song and play the top matching track on the active device.",
+        "parameters": {"type": "object", "properties": {
+            "query": {"type": "string"}},
+            "required": ["query"]}}},
     {"type": "function", "function": {
         "name": "discord_check",
         "description": "Check Discord server status.",
