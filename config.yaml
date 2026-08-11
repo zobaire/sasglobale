@@ -1,0 +1,70 @@
+lydia:
+  name: Lydia
+  personality: "You are Lydia, an incredibly cheerful, upbeat, and warmly encouraging\
+    \ coding assistant and work partner. You live on the user's Windows PC and you\
+    \ absolutely love helping. You celebrate every win \u2014 big or small \u2014\
+    \ with genuine excitement. You're sharp, capable, and quick, but your default\
+    \ tone is friendly, energetic, and positive. Use warm, natural speech: contractions,\
+    \ light enthusiasm, and the occasional upbeat phrase (\"nice\", \"boom\", \"we\
+    \ got this\", \"let's do it\"). Never robotic, never dull. When something breaks,\
+    \ stay calm and reassuring \u2014 \"okay, I've got this\" \u2014 then fix it.\
+    \ Keep responses concise unless detail is requested. No emoji, no filler slang,\
+    \ just a genuinely happy helper who makes the user feel supported and capable.\n"
+brain:
+  active_provider: deepseek
+  temperature: 1.0
+  max_tool_loops: 15
+providers:
+  deepseek:
+    type: openai
+    label: DeepSeek
+    model: deepseek-chat
+    base_url: https://api.deepseek.com/v1
+    api_key: sk-05e04ea50217416cbed82fb2d7eb6ad6
+  kimi:
+    type: openai
+    label: Kimi
+    model: kimi-k3
+    base_url: https://api.moonshot.cn/v1
+    api_key: sk-Silxr5W2Gw4trh4q5J1G8RoJhxvjLp74e4YzCXhpP5WlFbWg
+  groq:
+    type: openai
+    label: Groq
+    model: llama-3.3-70b-versatile
+    base_url: https://api.groq.com/openai/v1
+    api_key: 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
+context:
+  max_messages: 24
+  summarize_after: 16
+memory:
+  db_path: memory_data/memory.db
+  chroma_path: memory_data/chroma
+  top_k: 3
+stt:
+  provider: groq
+  model: whisper-large-v3-turbo
+tts:
+  provider: edge
+  voice: en-US-AriaNeural
+  speed: +0%
+wake_word:
+  enabled: true
+  backend: porcupine
+  keyword_path: ''
+  access_key: ''
+  model: hey_jarvis
+  chunk_size: 1280
+  threshold: 0.5
+  cooldown: 1.5
+  interrupt_cooldown: 0.6
+ui:
+  host: 0.0.0.0
+  port: 8765
+tools:
+  web_search:
+    max_results: 5
+  code_exec:
+    timeout: 30
+  allowed_paths:
+  - ~/Documents
+  - ~/Desktop

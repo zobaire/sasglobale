@@ -1,0 +1,8 @@
+.env
+.env.bak
+__pycache__/
+*.pyc
+memory_data/
+.venv/
+venv/
+*.ppn

@@ -1,0 +1,369 @@
+"""Tool registry, schemas, and dispatcher."""
+from __future__ import annotations
+from typing import Callable
+
+from brain.tools.web_search import search, fetch_page, get_weather
+from brain.tools.app_control import open_app, open_url, kill_process
+from brain.tools.desktop import (
+    type_text, press_key, click_at, scroll_screen, move_mouse,
+    read_screen, find_on_screen, get_open_windows, focus_window,
+    media_control, screenshot,
+)
+from brain.tools.file_ops import read_file, write_file, list_files, apply_patch
+from brain.tools.code_exec import run_python
+from brain.tools.system import (
+    get_clipboard, set_clipboard, set_volume, get_volume,
+    get_system_info, set_brightness, lock_screen, power_command,
+    show_notification, set_timer,
+)
+from brain.tools.api_tools import spotify_control, discord_check, tebex_check, check_business
+from brain.tools.project import (
+    read_project, grep_project, read_symbols,
+    run_shell, run_tests, run_linter, edit_file,
+)
+
+TOOL_MAP: dict[str, Callable[[dict], str]] = {
+    # Web
+    "web_search": lambda a: search(a["query"], a.get("max_results", 5)),
+    "fetch_page": lambda a: fetch_page(a["url"], a.get("max_chars", 3000)),
+    "open_url": lambda a: open_url(a["url"]),
+    "get_weather": lambda a: get_weather(a.get("location", "")),
+    # Apps & processes
+    "open_app": lambda a: open_app(a["name"]),
+    "kill_process": lambda a: kill_process(a["name"]),
+    # Desktop automation
+    "read_screen": lambda _: read_screen(),
+    "find_on_screen": lambda a: find_on_screen(a["text"]),
+    "click_at": lambda a: click_at(int(a["x"]), int(a["y"]), a.get("button", "left")),
+    "scroll_screen": lambda a: scroll_screen(a["direction"], int(a.get("amount", 3))),
+    "move_mouse": lambda a: move_mouse(int(a["x"]), int(a["y"])),
+    "focus_window": lambda a: focus_window(a["title"]),
+    "get_open_windows": lambda _: get_open_windows(),
+    "type_text": lambda a: type_text(a["text"]),
+    "press_key": lambda a: press_key(a["keys"]),
+    "media_control": lambda a: media_control(a["action"]),
+    "screenshot": lambda a: screenshot(a.get("filename", "")),
+    # Files
+    "read_file": lambda a: read_file(a["path"]),
+    "write_file": lambda a: write_file(a["path"], a["content"]),
+    "list_files": lambda a: list_files(a["path"]),
+    "apply_patch": lambda a: apply_patch(a["path"], a["patch"]),
+    # Code
+    "run_python": lambda a: run_python(a["code"]),
+    # Clipboard
+    "get_clipboard": lambda _: get_clipboard(),
+    "set_clipboard": lambda a: set_clipboard(a["text"]),
+    # System
+    "set_volume": lambda a: set_volume(int(a["level"])),
+    "get_volume": lambda _: get_volume(),
+    "get_system_info": lambda _: get_system_info(),
+    "set_brightness": lambda a: set_brightness(int(a["level"])),
+    "lock_screen": lambda _: lock_screen(),
+    "power_command": lambda a: power_command(a["action"]),
+    # Notifications & timers
+    "show_notification": lambda a: show_notification(a["title"], a["message"]),
+    "set_timer": lambda a: set_timer(int(a["seconds"]), a.get("message", "Timer done!")),
+    # API integrations
+    "spotify_control": lambda a: spotify_control(a["action"]),
+    "discord_check": lambda _: discord_check(),
+    "tebex_check": lambda _: tebex_check(),
+    "check_business": lambda _: check_business(),
+    # Coding brain
+    "read_project": lambda a: read_project(a.get("root", "."), int(a.get("depth", 4))),
+    "grep_project": lambda a: grep_project(a["pattern"], a.get("root", "."), int(a.get("max_results", 20))),
+    "read_symbols": lambda a: read_symbols(a["path"]),
+    "run_shell": lambda a: run_shell(a["command"], int(a.get("timeout", 30))),
+    "run_tests": lambda a: run_tests(a.get("path", ".")),
+    "run_linter": lambda a: run_linter(a.get("path", ".")),
+    "edit_file": lambda a: edit_file(a["path"], a["patch"]),
+}
+
+TOOL_SCHEMAS: list[dict] = [
+    # --- Web ---
+    {"type": "function", "function": {
+        "name": "web_search",
+        "description": "Search the web. Returns top result snippets.",
+        "parameters": {"type": "object", "properties": {
+            "query": {"type": "string"},
+            "max_results": {"type": "integer"}},
+            "required": ["query"]}}},
+    {"type": "function", "function": {
+        "name": "fetch_page",
+        "description": "Fetch a URL and return plain text content.",
+        "parameters": {"type": "object", "properties": {
+            "url": {"type": "string"},
+            "max_chars": {"type": "integer"}},
+            "required": ["url"]}}},
+    {"type": "function", "function": {
+        "name": "open_url",
+        "description": "Open a URL in the default browser.",
+        "parameters": {"type": "object", "properties": {
+            "url": {"type": "string"}},
+            "required": ["url"]}}},
+    {"type": "function", "function": {
+        "name": "get_weather",
+        "description": "Get current weather for a location. Leave empty for auto-detect.",
+        "parameters": {"type": "object", "properties": {
+            "location": {"type": "string"}},
+            "required": []}}},
+
+    # --- Apps & processes ---
+    {"type": "function", "function": {
+        "name": "open_app",
+        "description": "Open app by name: chrome, firefox, edge, brave, discord, telegram, slack, teams, zoom, vscode, terminal, cmd, powershell, git bash, spotify, vlc, steam, epic games, notepad, notepad++, word, excel, powerpoint, paint, snipping tool, explorer, task manager, calculator, settings, control panel.",
+        "parameters": {"type": "object", "properties": {
+            "name": {"type": "string"}},
+            "required": ["name"]}}},
+    {"type": "function", "function": {
+        "name": "kill_process",
+        "description": "Kill/close a running process by name (e.g. chrome, spotify, discord).",
+        "parameters": {"type": "object", "properties": {
+            "name": {"type": "string"}},
+            "required": ["name"]}}},
+
+    # --- Desktop vision & mouse ---
+    {"type": "function", "function": {
+        "name": "read_screen",
+        "description": "OCR the screen. Returns all visible text with coordinates: 'text | x,y'. Use before clicking.",
+        "parameters": {"type": "object", "properties": {}}}},
+    {"type": "function", "function": {
+        "name": "find_on_screen",
+        "description": "Find text on screen via OCR. Returns coordinates to click.",
+        "parameters": {"type": "object", "properties": {
+            "text": {"type": "string"}},
+            "required": ["text"]}}},
+    {"type": "function", "function": {
+        "name": "click_at",
+        "description": "Click at screen coordinates (x, y). Button: left (default), right, double.",
+        "parameters": {"type": "object", "properties": {
+            "x": {"type": "integer"},
+            "y": {"type": "integer"},
+            "button": {"type": "string", "enum": ["left", "right", "double"]}},
+            "required": ["x", "y"]}}},
+    {"type": "function", "function": {
+        "name": "scroll_screen",
+        "description": "Scroll up or down. Amount = number of scroll steps (default 3).",
+        "parameters": {"type": "object", "properties": {
+            "direction": {"type": "string", "enum": ["up", "down"]},
+            "amount": {"type": "integer"}},
+            "required": ["direction"]}}},
+    {"type": "function", "function": {
+        "name": "move_mouse",
+        "description": "Move mouse cursor to (x, y) without clicking.",
+        "parameters": {"type": "object", "properties": {
+            "x": {"type": "integer"},
+            "y": {"type": "integer"}},
+            "required": ["x", "y"]}}},
+
+    # --- Desktop automation ---
+    {"type": "function", "function": {
+        "name": "focus_window",
+        "description": "Bring a window to foreground by partial title.",
+        "parameters": {"type": "object", "properties": {
+            "title": {"type": "string"}},
+            "required": ["title"]}}},
+    {"type": "function", "function": {
+        "name": "get_open_windows",
+        "description": "List all open window titles.",
+        "parameters": {"type": "object", "properties": {}}}},
+    {"type": "function", "function": {
+        "name": "type_text",
+        "description": "Type text at current cursor position.",
+        "parameters": {"type": "object", "properties": {
+            "text": {"type": "string"}},
+            "required": ["text"]}}},
+    {"type": "function", "function": {
+        "name": "press_key",
+        "description": "Press key/hotkey: ctrl+c, alt+tab, win+d, enter, escape, ctrl+shift+esc.",
+        "parameters": {"type": "object", "properties": {
+            "keys": {"type": "string"}},
+            "required": ["keys"]}}},
+    {"type": "function", "function": {
+        "name": "media_control",
+        "description": "Media playback: play, pause, next, previous, mute.",
+        "parameters": {"type": "object", "properties": {
+            "action": {"type": "string"}},
+            "required": ["action"]}}},
+    {"type": "function", "function": {
+        "name": "screenshot",
+        "description": "Take a screenshot, saves to Desktop.",
+        "parameters": {"type": "object", "properties": {
+            "filename": {"type": "string"}},
+            "required": []}}},
+
+    # --- Files ---
+    {"type": "function", "function": {
+        "name": "read_file",
+        "description": "Read a text file (inside allowed paths).",
+        "parameters": {"type": "object", "properties": {
+            "path": {"type": "string"}},
+            "required": ["path"]}}},
+    {"type": "function", "function": {
+        "name": "write_file",
+        "description": "Write text to a file (inside allowed paths).",
+        "parameters": {"type": "object", "properties": {
+            "path": {"type": "string"},
+            "content": {"type": "string"}},
+            "required": ["path", "content"]}}},
+    {"type": "function", "function": {
+        "name": "list_files",
+        "description": "List files in directory (inside allowed paths).",
+        "parameters": {"type": "object", "properties": {
+            "path": {"type": "string"}},
+            "required": ["path"]}}},
+    {"type": "function", "function": {
+        "name": "apply_patch",
+        "description": "Apply a SEARCH/REPLACE patch to a file. Format: <<<<<<< SEARCH\\nold\\n=======\\nnew\\n>>>>>>> REPLACE",
+        "parameters": {"type": "object", "properties": {
+            "path": {"type": "string"},
+            "patch": {"type": "string"}},
+            "required": ["path", "patch"]}}},
+
+    # --- Code ---
+    {"type": "function", "function": {
+        "name": "run_python",
+        "description": "Execute Python code in a subprocess sandbox, returns stdout/stderr.",
+        "parameters": {"type": "object", "properties": {
+            "code": {"type": "string"}},
+            "required": ["code"]}}},
+
+    # --- Clipboard ---
+    {"type": "function", "function": {
+        "name": "get_clipboard",
+        "description": "Get clipboard text.",
+        "parameters": {"type": "object", "properties": {}}}},
+    {"type": "function", "function": {
+        "name": "set_clipboard",
+        "description": "Set clipboard text.",
+        "parameters": {"type": "object", "properties": {
+            "text": {"type": "string"}},
+            "required": ["text"]}}},
+
+    # --- System ---
+    {"type": "function", "function": {
+        "name": "set_volume",
+        "description": "Set system volume 0-100.",
+        "parameters": {"type": "object", "properties": {
+            "level": {"type": "integer"}},
+            "required": ["level"]}}},
+    {"type": "function", "function": {
+        "name": "get_volume",
+        "description": "Get current system volume.",
+        "parameters": {"type": "object", "properties": {}}}},
+    {"type": "function", "function": {
+        "name": "get_system_info",
+        "description": "Get CPU, RAM, and disk usage stats.",
+        "parameters": {"type": "object", "properties": {}}}},
+    {"type": "function", "function": {
+        "name": "set_brightness",
+        "description": "Set screen brightness 0-100 (laptops only).",
+        "parameters": {"type": "object", "properties": {
+            "level": {"type": "integer"}},
+            "required": ["level"]}}},
+    {"type": "function", "function": {
+        "name": "lock_screen",
+        "description": "Lock the workstation.",
+        "parameters": {"type": "object", "properties": {}}}},
+    {"type": "function", "function": {
+        "name": "power_command",
+        "description": "Shutdown, restart, or sleep the PC.",
+        "parameters": {"type": "object", "properties": {
+            "action": {"type": "string", "enum": ["shutdown", "restart", "sleep"]}},
+            "required": ["action"]}}},
+
+    # --- Notifications & timers ---
+    {"type": "function", "function": {
+        "name": "show_notification",
+        "description": "Show a Windows toast notification.",
+        "parameters": {"type": "object", "properties": {
+            "title": {"type": "string"},
+            "message": {"type": "string"}},
+            "required": ["title", "message"]}}},
+    {"type": "function", "function": {
+        "name": "set_timer",
+        "description": "Set a timer (in seconds) that shows a notification when done.",
+        "parameters": {"type": "object", "properties": {
+            "seconds": {"type": "integer"},
+            "message": {"type": "string"}},
+            "required": ["seconds"]}}},
+
+    # --- API integrations ---
+    {"type": "function", "function": {
+        "name": "spotify_control",
+        "description": "Control Spotify playback: play, pause, next, previous.",
+        "parameters": {"type": "object", "properties": {
+            "action": {"type": "string"}},
+            "required": ["action"]}}},
+    {"type": "function", "function": {
+        "name": "discord_check",
+        "description": "Check Discord server status.",
+        "parameters": {"type": "object", "properties": {}}}},
+    {"type": "function", "function": {
+        "name": "tebex_check",
+        "description": "Check Tebex store for recent sales.",
+        "parameters": {"type": "object", "properties": {}}}},
+    {"type": "function", "function": {
+        "name": "check_business",
+        "description": "Check Discord and Tebex for updates.",
+        "parameters": {"type": "object", "properties": {}}}},
+
+    # --- Coding brain ---
+    {"type": "function", "function": {
+        "name": "read_project",
+        "description": "Return a tree view of the project up to a given depth.",
+        "parameters": {"type": "object", "properties": {
+            "root": {"type": "string"},
+            "depth": {"type": "integer"}},
+            "required": []}}},
+    {"type": "function", "function": {
+        "name": "grep_project",
+        "description": "Search project files for a pattern and return matching lines.",
+        "parameters": {"type": "object", "properties": {
+            "pattern": {"type": "string"},
+            "root": {"type": "string"},
+            "max_results": {"type": "integer"}},
+            "required": ["pattern"]}}},
+    {"type": "function", "function": {
+        "name": "read_symbols",
+        "description": "Extract function/class symbols from a Python or JS/TS file.",
+        "parameters": {"type": "object", "properties": {
+            "path": {"type": "string"}},
+            "required": ["path"]}}},
+    {"type": "function", "function": {
+        "name": "run_shell",
+        "description": "Run a shell command and return stdout/stderr.",
+        "parameters": {"type": "object", "properties": {
+            "command": {"type": "string"},
+            "timeout": {"type": "integer"}},
+            "required": ["command"]}}},
+    {"type": "function", "function": {
+        "name": "run_tests",
+        "description": "Run the project's test suite (pytest or npm test).",
+        "parameters": {"type": "object", "properties": {
+            "path": {"type": "string"}},
+            "required": []}}},
+    {"type": "function", "function": {
+        "name": "run_linter",
+        "description": "Run the project's linter (ruff/flake8 or eslint).",
+        "parameters": {"type": "object", "properties": {
+            "path": {"type": "string"}},
+            "required": []}}},
+    {"type": "function", "function": {
+        "name": "edit_file",
+        "description": "Apply a SEARCH/REPLACE patch to a file. Use read_file first.",
+        "parameters": {"type": "object", "properties": {
+            "path": {"type": "string"},
+            "patch": {"type": "string"}},
+            "required": ["path", "patch"]}}},
+]
+
+
+def dispatch(tool_name: str, tool_args: dict) -> str:
+    """Execute a named tool and return string result."""
+    fn = TOOL_MAP.get(tool_name)
+    if fn is None:
+        return f"Unknown tool: {tool_name}"
+    try:
+        return str(fn(tool_args))
+    except Exception as e:
+        return f"Tool '{tool_name}' failed: {e}"

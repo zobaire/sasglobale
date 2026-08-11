@@ -1,0 +1,19 @@
+openai>=1.40.0
+fastapi>=0.110
+uvicorn[standard]>=0.29
+python-dotenv>=1.0
+requests>=2.31
+websockets>=12
+numpy>=1.26
+sounddevice>=0.4.6
+edge-tts>=6.1
+pyautogui>=0.9.54
+chromadb>=0.5.0
+sqlalchemy>=2.0
+pyyaml>=6.0
+pillow>=10.0
+mss>=9.0
+ddgs>=3.0
+# Optional: only if you want on-device wake word
+# openwakeword>=0.6.0
+# pyaudio>=0.2.13
