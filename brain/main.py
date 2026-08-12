@@ -76,6 +76,16 @@ def speak_streamed_if_unmuted(text: str) -> None:
         speak_streamed(text)
 
 
+def interrupt_and_speak(text: str) -> None:
+    """Mute-gated speech that ALWAYS cuts off any in-progress audio
+    before speaking the new message. Newest message wins."""
+    if _muted.is_set():
+        return
+    # Cancel whatever is currently being spoken so the new message takes over.
+    stop_speaking()
+    speak_streamed(text)
+
+
 def _play_beep() -> None:
     try:
         t = np.linspace(0, 0.12, int(24000 * 0.12), endpoint=False)
@@ -113,7 +123,12 @@ def _system_prompt() -> str:
     old_facts = _load_legacy_facts_text()
     old_routines = _load_routines_text()
 
+    lang = os.environ.get("LYDIA_LANG", "en")
+    lang_instruction = "Always reply in Mandarin Chinese (中文)." if lang == "zh" else "Reply in English."
+
     prompt = f"""{personality}
+
+{lang_instruction}
 
 ## Your Capabilities
 - See the screen, click, type, scroll, take screenshots.
@@ -148,6 +163,9 @@ def _execute_tool(name: str, args: dict) -> str:
 def process_request(user_text: str) -> str:
     """Process a user message and return the assistant's text response."""
     _check_abort()
+    # Newest message wins: immediately cut any audio still being spoken
+    # so we never keep talking over a brand-new request.
+    stop_speaking()
     _play_beep()
     broadcast({"type": "user", "text": user_text})
     broadcast({"type": "status", "message": "Thinking..."})
@@ -271,7 +289,7 @@ def _handle_typed_command(text: str) -> None:
     _abort.clear()
     try:
         response = process_request(text)
-        speak_streamed_if_unmuted(response)
+        interrupt_and_speak(response)
     except Aborted:
         pass
     finally:

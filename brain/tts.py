@@ -75,6 +75,16 @@ async def _edge_tts_to_file(text: str, path: str, voice: str, speed: str) -> Non
     await communicate.save(path)
 
 
+def _pick_voice(cfg: dict, lang: str | None = None) -> str:
+    """Return the TTS voice matching the current UI language."""
+    if lang is None:
+        import os
+        lang = os.environ.get("LYDIA_LANG", "en")
+    if lang == "zh":
+        return cfg.get("voice_zh", "zh-CN-XiaoxiaoNeural")
+    return cfg.get("voice", "en-US-AriaNeural")
+
+
 def _speak_file(path: str) -> None:
     audio = _pcm_from_mp3(path)
     if audio is None:
@@ -98,7 +108,7 @@ def speak(text: str) -> None:
         if provider == "edge":
             asyncio.run(_edge_tts_to_file(
                 text, out_path,
-                cfg.get("voice", "en-US-AriaNeural"),
+                _pick_voice(cfg),
                 cfg.get("speed", "+0%"),
             ))
         elif provider == "groq":

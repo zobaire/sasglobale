@@ -146,6 +146,40 @@
   .batt.active{opacity:1;}
   .batt.active .bname{color:var(--accent);}
   .batt.active .bpct{color:var(--paper);}
+
+  /* ---------- schedule / plans: glass panel on the left ---------- */
+  #schedule-panel{position:fixed;top:88px;left:18px;width:300px;max-height:52vh;z-index:10;background:var(--panel);border:1px solid var(--line);border-radius:20px;display:flex;flex-direction:column;overflow:hidden;
+    box-shadow:0 20px 60px rgba(0,0,0,0.45),inset 0 1px 0 rgba(255,255,255,0.08);
+    backdrop-filter:blur(var(--glass-blur));-webkit-backdrop-filter:blur(var(--glass-blur));}
+  #schedule-panel .shead{display:flex;align-items:center;justify-content:space-between;padding:11px 14px 10px;border-bottom:1px solid var(--line);flex:none;}
+  #schedule-panel h2{font-family:var(--mono);font-size:9.5px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--dimmer);display:flex;align-items:center;gap:8px;margin:0;padding:0;border:0;}
+  #schedule-panel h2::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--cool);box-shadow:0 0 8px var(--cool-dim);flex:none;}
+  .sadd{width:26px;height:26px;border:1px solid var(--line);background:rgba(255,255,255,0.05);color:var(--cool);font-size:16px;line-height:1;cursor:pointer;border-radius:8px;display:grid;place-items:center;transition:all .15s;flex:none;}
+  .sadd:hover{border-color:var(--cool-dim);color:var(--cool);box-shadow:0 0 10px rgba(125,227,208,0.4);}
+  #sevents{flex:1;overflow-y:auto;padding:10px 12px 14px;display:flex;flex-direction:column;gap:8px;}
+  #sevents::-webkit-scrollbar{width:4px;}#sevents::-webkit-scrollbar-thumb{background:var(--line-strong);border-radius:4px;}
+  .sev{background:rgba(255,255,255,0.03);border:1px solid var(--line);border-left:3px solid var(--accent-dim);border-radius:12px;padding:8px 10px;animation:rise .2s ease both;transition:border-color .2s;}
+  .sev.soon{border-left-color:var(--cool);}
+  .sev .stitle{font-size:13px;font-weight:600;color:var(--paper);}
+  .sev .sdate{font-family:var(--mono);font-size:10px;color:var(--cool);margin-top:2px;}
+  .sev .smeta{font-family:var(--mono);font-size:9px;color:var(--dimmer);margin-top:2px;}
+  .sev .sacts{display:flex;gap:6px;margin-top:7px;}
+  .sev .sacts button{flex:1;border:1px solid var(--line);background:transparent;color:var(--dim);font-family:var(--mono);font-size:9.5px;padding:4px 6px;border-radius:7px;cursor:pointer;transition:all .15s;}
+  .sev .sacts button:hover{color:var(--paper);border-color:var(--accent-dim);}
+  .sev .sacts button.sdel:hover{color:var(--alert);border-color:var(--alert-dim);}
+  #sempty{font-family:var(--mono);font-size:10.5px;color:var(--dimmer);text-align:center;padding:14px 8px;}
+
+  .smform{display:flex;flex-direction:column;gap:7px;padding:11px 13px;border-top:1px solid var(--line);background:rgba(255,255,255,0.03);}
+  .smform input{background:rgba(255,255,255,0.06);border:1px solid var(--line);color:var(--paper);padding:7px 10px;outline:none;font:12.5px var(--sans);border-radius:9px;transition:border-color .2s,box-shadow .2s;}
+  .smform input:focus{border-color:var(--cool-dim);box-shadow:0 0 0 3px rgba(125,227,208,0.15);}
+  .smform input::placeholder{color:var(--dimmer);}
+  .smrow{display:flex;gap:7px;}
+  .smrow button{flex:1;border:1px solid var(--line);background:rgba(255,255,255,0.05);color:var(--paper);font-family:var(--mono);font-size:10px;padding:7px;cursor:pointer;border-radius:9px;transition:all .15s;}
+  #ssave{background:var(--accent-dim);border-color:var(--accent-dim);color:#fff;font-weight:700;}
+  #ssave:hover{background:var(--accent);box-shadow:0 0 12px rgba(90,116,208,0.5);}
+  .smrow button.sdel{color:var(--alert);}
+  .smrow button.sdel:hover{border-color:var(--alert-dim);}
+  #schedule-msg{font-family:var(--mono);font-size:9.5px;color:var(--cool);padding:7px 13px;border-top:1px solid var(--line);min-height:14px;flex:none;}
 </style>
 </head>
 <body>
@@ -201,6 +235,26 @@
 </div>
 
 <div id="hint">drag to orbit · scroll to zoom · click a node</div>
+
+<!-- Schedule / Plans panel -->
+<div id="schedule-panel">
+  <div class="shead">
+    <h2>Plans &amp; Schedule</h2>
+    <button type="button" class="sadd" title="Add a plan" onclick="openScheduleForm()">+</button>
+  </div>
+  <div id="sevents">
+    <div id="sempty">No plans yet. Click + to add one,<br>or just tell Lydia in chat.</div>
+  </div>
+  <div id="smform" class="smform" style="display:none;">
+    <input id="smtitle" placeholder="Plan title…" autocomplete="off">
+    <input id="smdate" type="datetime-local" placeholder="Date & time…">
+    <div class="smrow">
+      <button type="button" id="ssave">Save</button>
+      <button type="button" class="sdel" id="scancel" onclick="hideScheduleForm()">Cancel</button>
+    </div>
+  </div>
+  <div id="schedule-msg"></div>
+</div>
 
 <script src="vendor/3d-force-graph.min.js"></script>
 <script>
@@ -356,6 +410,12 @@ function handle(evt){
       $('orbwrap').classList.toggle('deaf',!evt.listening); break;
     case 'battery': updateBattery(evt); break;
     case 'provider': glowProvider(evt.name); break;
+    case 'schedule': renderSchedule(evt.events); break;
+    case 'schedule_msg': $('schedule-msg').textContent=evt.text; break;
+    case 'reminder':
+      $('schedule-msg').textContent='⏰ '+evt.text;
+      add($('chat'),bubble('msg assistant','⏰ '+evt.text));
+      break;
   }
 }
 let curLang='en';
@@ -407,6 +467,73 @@ document.querySelectorAll('#effort .ebtn').forEach(b=>{b.onclick=()=>{if(ws&&ws.
 let curMuted=false;
 $('mute').onclick=()=>{if(ws&&ws.readyState===1)ws.send(JSON.stringify({type:'set_mute',muted:!curMuted}));};
 $('listenmute').onclick=()=>{if(ws&&ws.readyState===1)ws.send(JSON.stringify({type:'set_listen',listening:!curListening}));};
+
+/* ---------- Schedule / Plans ---------- */
+let sEvents=[];
+function renderSchedule(list){
+  sEvents=list||[];
+  const host=$('sevents');
+  host.innerHTML='';
+  if(!sEvents.length){
+    const el=document.createElement('div');
+    el.id='sempty';
+    el.textContent='No plans yet. Click + to add one, or just tell Lydia in chat.';
+    host.appendChild(el);
+    return;
+  }
+  const now=new Date();
+  sEvents.forEach(ev=>{
+    const d=document.createElement('div');
+    d.className='sev';
+    let dateStr=ev.date||'';
+    let soon=false;
+    const ts=Date.parse(dateStr.replace(' ', 'T'));
+    if(!isNaN(ts)){
+      const diff=ts-now.getTime();
+      if(diff>=0 && diff < 3*3600*1000) soon=true;
+      dateStr=new Date(ts).toLocaleString([],{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
+    }
+    if(soon)d.classList.add('soon');
+    const t=document.createElement('div');t.className='stitle';t.textContent=ev.title;
+    const dt=document.createElement('div');dt.className='sdate';dt.textContent=dateStr;
+    const acts=document.createElement('div');acts.className='sacts';
+    const ed=document.createElement('button');ed.textContent='Edit';
+    ed.onclick=()=>openScheduleForm(ev);
+    const del=document.createElement('button');del.className='sdel';del.textContent='Cancel';
+    del.onclick=()=>{if(ws&&ws.readyState===1)ws.send(JSON.stringify({type:'schedule_delete',id:ev.id}));};
+    acts.appendChild(ed);acts.appendChild(del);
+    d.appendChild(t);d.appendChild(dt);d.appendChild(acts);
+    host.appendChild(d);
+  });
+}
+function openScheduleForm(ev){
+  const f=$('smform');
+  f.style.display='flex';
+  $('smtitle').value=ev?ev.title:'';
+  const dval=ev?ev.date.replace(' ', 'T'):'';
+  $('smdate').value=dval;
+  f.dataset.id=ev?ev.id:'';
+  f.scrollIntoView({block:'nearest'});
+}
+function hideScheduleForm(){
+  $('smform').style.display='none';
+  $('smtitle').value='';
+  $('smdate').value='';
+  delete $('smform').dataset.id;
+}
+function saveSchedule(){
+  if(!ws||ws.readyState!==1)return;
+  const title=$('smtitle').value.trim();
+  const raw=$('smdate').value;
+  if(!title){$('schedule-msg').textContent='Enter a title.';return;}
+  if(!raw){$('schedule-msg').textContent='Pick a date & time.';return;}
+  const date=raw.replace('T', ' ')+':00';
+  const id=$('smform').dataset.id;
+  ws.send(JSON.stringify(id?{type:'schedule_update',id,title,date}:{type:'schedule_add',title,date}));
+  hideScheduleForm();
+}
+$('ssave').onclick=saveSchedule;
+$('smtitle').addEventListener('keydown',e=>{if(e.key==='Enter')saveSchedule();});
 
 initGraph();
 updateGraph([], '');

@@ -15,6 +15,13 @@ from brain.config import load_config, get_providers, set_active_provider
 from brain.events import register
 from brain.memory import Memory
 from brain.battery import start as start_battery, get_latest
+from brain.schedule import (
+    start as start_schedule,
+    list_events as schedule_list_events,
+    add_event as schedule_add_event,
+    update_event as schedule_update_event,
+    delete_event as schedule_delete_event,
+)
 from brain.main import (
     process_request,
     abort_all,
@@ -22,6 +29,7 @@ from brain.main import (
     toggle_mute,
     is_muted,
     speak_streamed_if_unmuted,
+    interrupt_and_speak,
     handle_wake,
 )
 
@@ -112,6 +120,10 @@ def _translate_event(evt: dict) -> dict | None:
         return {"type": "mute", "muted": evt.get("muted", False)}
     elif t == "provider_changed":
         return {"type": "provider", "name": evt.get("provider", "")}
+    elif t == "schedule":
+        return {"type": "schedule", "events": evt.get("events", [])}
+    elif t == "reminder":
+        return {"type": "reminder", "text": evt.get("text", ""), "event": evt.get("event", "")}
     return evt
 
 
@@ -181,6 +193,7 @@ async def websocket_endpoint(ws: WebSocket):
     await ws.send_text(json.dumps({"type": "effort", "tier": _get_effort_tier()}))
     await ws.send_text(json.dumps({"type": "lang", "lang": "en", "name": "English"}))
     await ws.send_text(json.dumps({"type": "mute", "muted": is_muted()}))
+    await ws.send_text(json.dumps({"type": "schedule", "events": schedule_list_events()}))
     initial_batt = get_latest()
     if initial_batt:
         await ws.send_text(json.dumps({"type": "battery", **initial_batt}))
@@ -206,7 +219,8 @@ async def websocket_endpoint(ws: WebSocket):
                 loop = asyncio.get_event_loop()
                 try:
                     response = await loop.run_in_executor(None, process_request, text)
-                    threading.Thread(target=speak_streamed_if_unmuted, args=(response,), daemon=True).start()
+                    # Newest message wins: interrupt any current speech, then speak.
+                    threading.Thread(target=interrupt_and_speak, args=(response,), daemon=True).start()
                 except Exception as e:
                     await ws.send_text(json.dumps({"type": "assistant", "text": f"Error: {e}"}))
 
@@ -268,6 +282,32 @@ async def websocket_endpoint(ws: WebSocket):
                     resume_wake_mic()
                 await ws.send_text(json.dumps({"type": "listen", "listening": _listening_enabled}))
 
+            elif msg_type == "schedule_list":
+                await ws.send_text(json.dumps({"type": "schedule", "events": schedule_list_events()}))
+
+            elif msg_type == "schedule_add":
+                title = msg.get("title", "").strip()
+                date = msg.get("date", "").strip()
+                if title and date:
+                    evt = schedule_add_event(title, date)
+                    await ws.send_text(json.dumps({"type": "schedule_msg", "text": f"✅ Added: {evt['title']} at {evt['date']}"}))
+                else:
+                    await ws.send_text(json.dumps({"type": "schedule_msg", "text": "Need a title and a date (YYYY-MM-DD HH:MM)."}))
+
+            elif msg_type == "schedule_update":
+                updated = schedule_update_event(
+                    msg.get("id", ""),
+                    title=msg.get("title"),
+                    date=msg.get("date"),
+                )
+                await ws.send_text(json.dumps({"type": "schedule_msg",
+                    "text": f"✅ Updated: {updated['title']} at {updated['date']}" if updated else "Event not found."}))
+
+            elif msg_type == "schedule_delete":
+                ok = schedule_delete_event(msg.get("id", ""))
+                await ws.send_text(json.dumps({"type": "schedule_msg",
+                    "text": "🗑️ Event cancelled." if ok else "Event not found."}))
+
     except WebSocketDisconnect:
         if ws in _clients:
             _clients.remove(ws)
@@ -276,6 +316,7 @@ async def websocket_endpoint(ws: WebSocket):
 def start_web_background(port: int = 8765, host: str = "0.0.0.0") -> None:
     register(broadcast_to_ws)
     start_battery()
+    start_schedule()
 
     def _run():
         loop = asyncio.new_event_loop()

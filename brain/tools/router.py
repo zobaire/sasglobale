@@ -24,6 +24,12 @@ from brain.tools.project import (
     read_project, grep_project, read_symbols,
     run_shell, run_tests, run_linter, edit_file,
 )
+from brain.schedule import (
+    list_events as schedule_list,
+    add_event as schedule_add,
+    update_event as schedule_update,
+    delete_event as schedule_delete,
+)
 
 TOOL_MAP: dict[str, Callable[[dict], str]] = {
     # Web
@@ -73,6 +79,11 @@ TOOL_MAP: dict[str, Callable[[dict], str]] = {
     "discord_check": lambda _: discord_check(),
     "tebex_check": lambda _: tebex_check(),
     "check_business": lambda _: check_business(),
+    # Schedule / plans
+    "schedule_list": lambda _: _fmt_schedule(schedule_list()),
+    "schedule_add": lambda a: _fmt_schedule([schedule_add(a["title"], a["date"])]),
+    "schedule_update": lambda a: _fmt_schedule([schedule_update(a["id"], a.get("title"), a.get("date"))]) if schedule_update(a["id"], a.get("title"), a.get("date")) else "Event not found.",
+    "schedule_delete": lambda a: "Event cancelled." if schedule_delete(a["id"]) else "Event not found.",
     # Coding brain
     "read_project": lambda a: read_project(a.get("root", "."), int(a.get("depth", 4))),
     "grep_project": lambda a: grep_project(a["pattern"], a.get("root", "."), int(a.get("max_results", 20))),
@@ -325,6 +336,33 @@ TOOL_SCHEMAS: list[dict] = [
         "description": "Check Discord and Tebex for updates.",
         "parameters": {"type": "object", "properties": {}}}},
 
+    # --- Schedule / plans ---
+    {"type": "function", "function": {
+        "name": "schedule_list",
+        "description": "List all planned events in the schedule.",
+        "parameters": {"type": "object", "properties": {}, "required": []}}},
+    {"type": "function", "function": {
+        "name": "schedule_add",
+        "description": "Add an event/plan to the schedule. date must be 'YYYY-MM-DD HH:MM'.",
+        "parameters": {"type": "object", "properties": {
+            "title": {"type": "string"},
+            "date": {"type": "string"}},
+            "required": ["title", "date"]}}},
+    {"type": "function", "function": {
+        "name": "schedule_update",
+        "description": "Edit an existing event's title and/or date. id is the event id.",
+        "parameters": {"type": "object", "properties": {
+            "id": {"type": "string"},
+            "title": {"type": "string"},
+            "date": {"type": "string"}},
+            "required": ["id"]}}},
+    {"type": "function", "function": {
+        "name": "schedule_delete",
+        "description": "Cancel/delete an event by id.",
+        "parameters": {"type": "object", "properties": {
+            "id": {"type": "string"}},
+            "required": ["id"]}}},
+
     # --- Coding brain ---
     {"type": "function", "function": {
         "name": "read_project",
@@ -374,6 +412,17 @@ TOOL_SCHEMAS: list[dict] = [
             "patch": {"type": "string"}},
             "required": ["path", "patch"]}}},
 ]
+
+
+def _fmt_schedule(events: list[dict]) -> str:
+    """Format schedule events for the LLM / voice reply."""
+    if not events:
+        return "No upcoming events."
+    lines = []
+    for e in events:
+        if e:
+            lines.append(f"- {e.get('date', '')}: {e.get('title', '')}")
+    return "Schedule:\n" + "\n".join(lines) if lines else "No upcoming events."
 
 
 def dispatch(tool_name: str, tool_args: dict) -> str:
