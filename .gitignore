@@ -13,4 +13,5 @@ check_spot_debug.py
 out.txt
 spotify_token.json
 *.log
-"_test_zh.mp3"  
+_test_zh.mp3
+memory.json

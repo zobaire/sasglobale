@@ -11,6 +11,7 @@ from brain.config import load_config
 
 
 _MIC_PAUSE = threading.Event()
+_pending_wake = threading.Event()
 
 
 def pause_wake_mic() -> None:
@@ -19,6 +20,14 @@ def pause_wake_mic() -> None:
 
 def resume_wake_mic() -> None:
     _MIC_PAUSE.clear()
+
+
+def set_pending_wake() -> None:
+    _pending_wake.set()
+
+
+def consume_pending_wake() -> bool:
+    return _pending_wake.is_set()
 
 
 def _load_env() -> dict[str, str]:
@@ -113,10 +122,12 @@ def _listen_porcupine(callback: Callable[[], None], cfg: dict) -> None:
             pcm = np.frombuffer(pcm, dtype=np.int16)
             result = porcupine.process(pcm)
             if result >= 0:
+                print(f"[Wake] Detected wake word (score={result})")
                 if _busy.locked():
+                    set_pending_wake()
                     from brain.main import abort_all
                     abort_all()
-                    print("[Wake] Stopped by voice interrupt.")
+                    print("[Wake] Interrupted — will continue listening once current reply finishes.")
                 else:
                     def _run():
                         with _busy:
@@ -133,12 +144,29 @@ def _listen_openwakeword(callback: Callable[[], None], cfg: dict) -> None:
     """Use openWakeWord with a built-in model (fallback)."""
     import pyaudio
     from openwakeword.model import Model
+    from openwakeword.utils import download_models
 
     model_name = cfg.get("model", "hey_jarvis")
     chunk_size = cfg.get("chunk_size", 1280)
     threshold = cfg.get("threshold", 0.5)
 
-    oww = Model(wakeword_models=[model_name], inference_framework="onnx")
+    try:
+        download_models(model_names=[model_name])
+    except Exception as e:
+        print(f"[Wake] Model download note: {e}")
+
+    for framework in ("onnx", "tflite"):
+        try:
+            oww = Model(wakeword_models=[model_name], inference_framework=framework)
+            print(f"[Wake] openWakeWord loaded '{model_name}' with {framework}.")
+            break
+        except Exception as e:
+            print(f"[Wake] {framework} load failed: {e}")
+            continue
+    else:
+        print("[Wake] All frameworks failed. Falling back to push-to-talk.")
+        _console_loop(callback)
+        return
     audio = pyaudio.PyAudio()
     mic = audio.open(
         format=pyaudio.paInt16,
@@ -185,12 +213,13 @@ def _listen_openwakeword(callback: Callable[[], None], cfg: dict) -> None:
                 continue
 
             if _busy.locked():
-                ignore_until = now + 3.0
+                set_pending_wake()
                 from brain.main import abort_all
                 abort_all()
-                print("[Wake] Stopped by voice interrupt.")
+                ignore_until = now + 0.6
+                print("[Wake] Interrupted — will continue listening once current reply finishes.")
             else:
-                ignore_until = now + 2.0
+                ignore_until = now + 1.5
                 def _run():
                     with _busy:
                         callback()

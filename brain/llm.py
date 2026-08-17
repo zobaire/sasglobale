@@ -2,6 +2,8 @@
 from __future__ import annotations
 import json
 import re
+import threading
+import time
 from typing import Any, Callable
 
 from openai import OpenAI
@@ -22,6 +24,44 @@ def _get_client(base_url: str, api_key: str) -> OpenAI:
 def _strip_think(text: str) -> str:
     """Remove <think>...</think> reasoning blocks from model output."""
     return re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
+
+
+def _abortable_create(client, *, model, messages, tools, temperature, abort_check,
+                      poll=0.1):
+    """Run a blocking chat completion, bailing out instantly on an abort.
+
+    The OpenAI call blocks in a network request we can't cancel from the
+    caller's thread, so we run it in a daemon sub-thread and poll the abort
+    flag. If a Stop fires mid-request we stop waiting and raise Aborted right
+    away — Stop feels instant instead of sitting on the API timeout.
+    """
+    result: dict = {}
+    done = threading.Event()
+
+    def _run():
+        try:
+            result["resp"] = client.chat.completions.create(
+                model=model,
+                messages=messages,
+                tools=tools,
+                temperature=temperature,
+            )
+        except Exception as e:
+            result["err"] = e
+        finally:
+            done.set()
+
+    t = threading.Thread(target=_run, daemon=True)
+    t.start()
+    while not done.is_set():
+        if abort_check is not None:
+            abort_check()  # raises Aborted the instant a Stop fires
+        if done.wait(timeout=poll):
+            break
+    t.join(timeout=0.5)
+    if "err" in result:
+        raise result["err"]
+    return result.get("resp")
 
 
 def simple_chat(messages: list[dict], provider_key: str | None = None) -> str:
@@ -83,11 +123,13 @@ def chat_with_tools(
         if abort_check:
             abort_check()
 
-        resp = client.chat.completions.create(
+        resp = _abortable_create(
+            client,
             model=model,
             messages=messages,
             tools=tool_schemas,
             temperature=temperature,
+            abort_check=abort_check,
         )
         msg = resp.choices[0].message
 

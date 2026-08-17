@@ -60,7 +60,7 @@ def get_volume() -> str:
         "$f = 0.0; $v.GetMasterVolumeLevelScalar([ref]$f); [int]($f*100)"
     )
     result = _run_vol_ps(ps)
-    vol = result.stdout.strip()
+    vol = (result.stdout if result.stdout else "").strip()
     return f"Volume is at {vol}%." if vol.isdigit() else "Could not read volume."
 
 
@@ -70,7 +70,7 @@ def get_clipboard() -> str:
         ["powershell", "-command", "Get-Clipboard"],
         capture_output=True, text=True,
     )
-    return result.stdout.strip()
+    return (result.stdout if result.stdout else "").strip()
 
 
 def set_clipboard(text: str) -> str:
@@ -98,7 +98,8 @@ def get_system_info() -> str:
         "Disk C: ${disk_free}/${disk_total} GB free\""
     )
     result = subprocess.run(["powershell", "-command", ps], capture_output=True, text=True)
-    return result.stdout.strip() or "Could not read system info."
+    stdout = result.stdout if result.stdout else ""
+    return stdout.strip() or "Could not read system info."
 
 
 def set_brightness(level: int) -> str:
@@ -148,7 +149,8 @@ def show_notification(title: str, message: str) -> str:
     result = subprocess.run(["powershell", "-command", ps], capture_output=True, text=True)
     if result.returncode == 0:
         return f"Notification shown: {title}"
-    return f"Notification failed: {result.stderr.strip()}"
+    stderr = result.stderr if result.stderr else ""
+    return f"Notification failed: {stderr.strip()}"
 
 
 def set_timer(seconds: int, message: str = "Timer done!") -> str:

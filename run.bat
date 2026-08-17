@@ -53,7 +53,8 @@ for %%P in (
   "%ProgramFiles%\BraveSoftware\Brave-Browser\Application\brave.exe"
   "%ProgramFiles%\Google\Chrome\Application\chrome.exe"
   "%ProgramFiles(x86)%\Google\Chrome\Application\chrome.exe"
-  
+  "%ProgramFiles%\Microsoft\Edge\Application\msedge.exe"
+  "%ProgramFiles(x86)%\Microsoft\Edge\Application\msedge.exe"
 ) do if exist "%%~P" if not defined BROWSER set "BROWSER=%%~P"
 
 REM --- start the backend (this .bat owns the UI window, so disable the app's own) ---

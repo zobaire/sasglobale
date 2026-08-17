@@ -9,6 +9,7 @@ from brain.tools.desktop import (
     read_screen, find_on_screen, get_open_windows, focus_window,
     media_control, screenshot,
 )
+from brain.tools.window_manager import split_windows_equally, check_apps_status
 from brain.tools.file_ops import read_file, write_file, list_files, apply_patch
 from brain.tools.code_exec import run_python
 from brain.tools.system import (
@@ -72,6 +73,9 @@ TOOL_MAP: dict[str, Callable[[dict], str]] = {
     # Notifications & timers
     "show_notification": lambda a: show_notification(a["title"], a["message"]),
     "set_timer": lambda a: set_timer(int(a["seconds"]), a.get("message", "Timer done!")),
+    # Window splitting & checks
+    "split_windows_equally": lambda a: _join_list(split_windows_equally(a["apps"], a.get("direction", "horizontal"))),
+    "check_apps_open": lambda a: check_apps_status(a["apps"]),
     # API integrations
     "spotify_control": lambda a: spotify_control(a["action"]),
     "spotify_search": lambda a: spotify_search(a["query"], int(a.get("limit", 5))),
@@ -303,6 +307,24 @@ TOOL_SCHEMAS: list[dict] = [
             "message": {"type": "string"}},
             "required": ["seconds"]}}},
 
+    # --- Window splitting & checks ---
+    {"type": "function", "function": {
+        "name": "check_apps_open",
+        "description": "Report which of the given apps are currently open/running and which are not. Always call this BEFORE opening or arranging apps so you only open what's genuinely missing and never spawn duplicate windows.",
+        "parameters": {"type": "object", "properties": {
+            "apps": {"type": "array", "items": {"type": "string"},
+                     "description": "List of app names to check, e.g. ['brave', 'discord', 'spotify']"}},
+            "required": ["apps"]}}},
+    {"type": "function", "function": {
+        "name": "split_windows_equally",
+        "description": "Split the screen into N equal-width (or equal-height) zones and place one app per zone, in the order given. Use this when the user wants several specific apps arranged side by side at the same size - a shape Windows' built-in snap can't do for anything other than 2 or 4 windows.",
+        "parameters": {"type": "object", "properties": {
+            "apps": {"type": "array", "items": {"type": "string"},
+                     "description": "App names in left-to-right (or top-to-bottom) order, e.g. ['discord', 'spotify', 'brave']"},
+            "direction": {"type": "string", "enum": ["horizontal", "vertical"],
+                          "description": "horizontal = side-by-side columns, vertical = stacked rows"}},
+            "required": ["apps"]}}},
+
     # --- API integrations ---
     {"type": "function", "function": {
         "name": "spotify_control",
@@ -412,6 +434,11 @@ TOOL_SCHEMAS: list[dict] = [
             "patch": {"type": "string"}},
             "required": ["path", "patch"]}}},
 ]
+
+
+def _join_list(results: list) -> str:
+    """Join a list of result strings into a single reply."""
+    return "; ".join(str(r) for r in results)
 
 
 def _fmt_schedule(events: list[dict]) -> str:

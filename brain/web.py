@@ -25,12 +25,14 @@ from brain.schedule import (
 from brain.main import (
     process_request,
     abort_all,
+    reset_abort,
     is_stop_command,
     toggle_mute,
     is_muted,
     speak_streamed_if_unmuted,
     interrupt_and_speak,
     handle_wake,
+    Aborted,
 )
 
 _UI_DIR = Path(__file__).parent.parent / "ui"
@@ -41,6 +43,15 @@ app = FastAPI(title="Lydia")
 _clients: list[WebSocket] = []
 _loop: asyncio.AbstractEventLoop | None = None
 _listening_enabled = True
+# The currently-in-flight request future, so Stop can actually cancel it.
+_running_future: asyncio.Future | None = None
+# The actual worker thread running the request. Stop sets the sticky abort
+# flag and NEVER clears it itself; the worker clears it in its own finally
+# once it has fully unwound. This guarantees a fired Stop truly halts a
+# background request instead of letting it keep talking later.
+_running_thread: threading.Thread | None = None
+_active_workers = 0
+_lock = threading.Lock()
 
 
 @app.on_event("startup")
@@ -119,7 +130,12 @@ def _translate_event(evt: dict) -> dict | None:
     elif t == "mute":
         return {"type": "mute", "muted": evt.get("muted", False)}
     elif t == "provider_changed":
-        return {"type": "provider", "name": evt.get("provider", "")}
+        return {
+            "type": "provider",
+            "name": evt.get("provider", ""),
+            "label": evt.get("label", ""),
+            "model": evt.get("model", ""),
+        }
     elif t == "schedule":
         return {"type": "schedule", "events": evt.get("events", [])}
     elif t == "reminder":
@@ -151,7 +167,7 @@ async def _async_broadcast(event: dict) -> None:
 
 @app.get("/", response_class=HTMLResponse)
 async def index():
-    return HTMLResponse((_UI_DIR / "index.html").read_text(encoding="utf-8"))
+    return HTMLResponse((_UI_DIR / "indexV2.html").read_text(encoding="utf-8"))
 
 
 _vendor_dir = _UI_DIR / "vendor"
@@ -182,6 +198,7 @@ async def api_battery():
 
 @app.websocket("/ws")
 async def websocket_endpoint(ws: WebSocket):
+    global _running_future, _active_workers, _lock
     await ws.accept()
     _clients.append(ws)
 
@@ -194,6 +211,15 @@ async def websocket_endpoint(ws: WebSocket):
     await ws.send_text(json.dumps({"type": "lang", "lang": "en", "name": "English"}))
     await ws.send_text(json.dumps({"type": "mute", "muted": is_muted()}))
     await ws.send_text(json.dumps({"type": "schedule", "events": schedule_list_events()}))
+    # Tell the UI which provider/model is currently active so the buttons light up on load.
+    ctx = load_config().get("brain", {})
+    await ws.send_text(json.dumps({
+        "type": "provider",
+        "name": ctx.get("active_provider", ""),
+        "model": ctx.get("active_provider", ""),
+        "label": get_providers().get(ctx.get("active_provider", ""), {}).get("label", ""),
+        "current": True,
+    }))
     initial_batt = get_latest()
     if initial_batt:
         await ws.send_text(json.dumps({"type": "battery", **initial_batt}))
@@ -215,14 +241,44 @@ async def websocket_endpoint(ws: WebSocket):
                 if is_stop_command(text):
                     abort_all()
                     await ws.send_text(json.dumps({"type": "assistant", "text": "Stopped."}))
+                    await ws.send_text(json.dumps({"type": "status", "text": "connected"}))
                     continue
-                loop = asyncio.get_event_loop()
-                try:
-                    response = await loop.run_in_executor(None, process_request, text)
+
+                # Brand-new user request: newest message wins, so hard-stop
+                # any in-flight thinking or speaking. abort_all() sets the
+                # sticky abort flag, which the old worker's finally clears
+                # once it fully unwinds.
+                abort_all()
+
+                result_holder = {}
+                done_event = asyncio.Event()
+
+                def _run_request():
+                    global _active_workers
+                    reset_abort()
+                    try:
+                        result_holder["value"] = process_request(text)
+                    except Aborted:
+                        result_holder["value"] = None
+                    finally:
+                        with _lock:
+                            _active_workers -= 1
+                        reset_abort()
+                        ws_loop.call_soon_threadsafe(done_event.set)
+
+                ws_loop = asyncio.get_running_loop()
+                with _lock:
+                    _active_workers += 1
+                threading.Thread(target=_run_request, daemon=True).start()
+                await done_event.wait()
+                response = result_holder.get("value")
+                with _lock:
+                    _running_future = None
+                if response:
                     # Newest message wins: interrupt any current speech, then speak.
                     threading.Thread(target=interrupt_and_speak, args=(response,), daemon=True).start()
-                except Exception as e:
-                    await ws.send_text(json.dumps({"type": "assistant", "text": f"Error: {e}"}))
+                else:
+                    await ws.send_text(json.dumps({"type": "status", "text": "connected"}))
 
             elif msg_type == "wake":
                 await ws.send_text(json.dumps({"type": "status", "text": "listening"}))
@@ -234,7 +290,22 @@ async def websocket_endpoint(ws: WebSocket):
                 threading.Thread(target=_run_mic_pipeline, daemon=True).start()
 
             elif msg_type == "stop":
+                # Stop talking AND thinking: set the sticky abort flag, cancel
+                # the in-flight worker, and cut any audio. The abort flag stays
+                # SET until the running worker fully unwinds (its own finally
+                # clears it), so a half-finished request can never keep going
+                # or speak afterward.
+                with _lock:
+                    fut = _running_future
+                    if fut is not None and not fut.done():
+                        fut.cancel()
+                    _running_future = None
                 abort_all()
+                # If there is no worker in flight, nobody will clear the abort
+                # flag for us — re-arm now so the next request isn't stuck.
+                with _lock:
+                    if _active_workers == 0:
+                        reset_abort()
                 await ws.send_text(json.dumps({"type": "status", "text": "connected"}))
 
             elif msg_type == "set_lang":
@@ -260,6 +331,35 @@ async def websocket_endpoint(ws: WebSocket):
                 except Exception:
                     pass
                 await ws.send_text(json.dumps({"type": "effort", "tier": tier}))
+
+            elif msg_type == "switch_model":
+                # Explicit model switching between DeepSeek / Kimi / Groq.
+                key = msg.get("model", "") or msg.get("provider", "")
+                if not key:
+                    await ws.send_text(json.dumps({"type": "model_msg", "text": "No model specified."}))
+                    continue
+                if set_active_provider(key):
+                    label = get_providers().get(key, {}).get("label", key)
+                    from brain.events import broadcast
+                    broadcast({
+                        "type": "provider_changed",
+                        "provider": key,
+                        "label": label,
+                        "model": get_providers().get(key, {}).get("model", key),
+                    })
+                    await ws.send_text(json.dumps({
+                        "type": "provider",
+                        "name": key,
+                        "label": label,
+                        "model": get_providers().get(key, {}).get("model", key),
+                        "current": True,
+                    }))
+                    await ws.send_text(json.dumps({
+                        "type": "model_msg",
+                        "text": f"Model switched to {label}.",
+                    }))
+                else:
+                    await ws.send_text(json.dumps({"type": "model_msg", "text": f"Unknown model '{key}'."}))
 
             elif msg_type == "set_mute":
                 try:

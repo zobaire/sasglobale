@@ -76,7 +76,7 @@ def default_config() -> dict[str, Any]:
             "deepseek": {
                 "type": "openai",
                 "label": "DeepSeek",
-                "model": "deepseek-chat",
+                "model": "deepseek-pro",
                 "base_url": "https://api.deepseek.com/v1",
                 "api_key": "",
             },

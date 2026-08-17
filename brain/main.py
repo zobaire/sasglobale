@@ -37,9 +37,26 @@ class Aborted(Exception):
 
 
 def abort_all() -> None:
+    """Force-stop talking / thinking right now.
+
+    Sets the abort flag so any in-flight generation is interrupted,
+    kills whatever is being spoken, and tells the UI we're idle again.
+    The flag stays SET until the running worker actually stops, so a
+    background request can't keep going (or speak) after a Stop.
+    """
     _abort.set()
     stop_speaking()
     broadcast({"type": "status", "message": "Stopped."})
+
+
+def reset_abort() -> None:
+    """Re-arm for a fresh request after a stop/abort.
+
+    Only the worker that owns the cancelled request should clear the
+    flag once it has fully unwound. This guarantees a fired Stop never
+    leaves a half-finished response that keeps talking anyway.
+    """
+    _abort.clear()
 
 
 def is_stop_command(text: str) -> bool:

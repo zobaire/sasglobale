@@ -52,6 +52,13 @@ def move_mouse(x: int, y: int) -> str:
     return f"Moved mouse to ({x}, {y})."
 
 
+def _safe_str(value) -> str:
+    """Guarantee a string back from any input, never None."""
+    if value is None:
+        return ""
+    return str(value).strip()
+
+
 def _ocr_image(image_path: str) -> str:
     """Run Windows OCR on an image file, return text with positions."""
     ps = f"""
@@ -95,7 +102,7 @@ $output -join "`n"
         ["powershell", "-command", ps],
         capture_output=True, text=True, timeout=15,
     )
-    text = result.stdout.strip()
+    text = _safe_str(result.stdout if result.stdout else "")
     if not text:
         return "No text found on screen."
     return text
@@ -126,8 +133,10 @@ def find_on_screen(text: str) -> str:
         content_lower = content.lower()
 
         if target in content_lower:
-            x, y = coords.split(",")
-            return f"Found '{text}' at ({x.strip()}, {y.strip()}). Use click_at to click it."
+            parts = coords.split(",")
+            if len(parts) >= 2:
+                x, y = parts[0].strip(), parts[1].strip()
+                return f"Found '{text}' at ({x}, {y}). Use click_at to click it."
 
         words_target = set(target.split())
         words_content = set(content_lower.split())
@@ -138,8 +147,10 @@ def find_on_screen(text: str) -> str:
 
     if best_match and best_score > 0:
         content, coords = best_match
-        x, y = coords.split(",")
-        return f"Closest match: '{content}' at ({x.strip()}, {y.strip()}). Use click_at to click it."
+        parts = coords.split(",")
+        if len(parts) >= 2:
+            x, y = parts[0].strip(), parts[1].strip()
+            return f"Closest match: '{content}' at ({x}, {y}). Use click_at to click it."
 
     # Try scrolling down once
     pyautogui.scroll(-3)
@@ -150,8 +161,10 @@ def find_on_screen(text: str) -> str:
             continue
         content, coords = line.rsplit(" | ", 1)
         if target in content.lower():
-            x, y = coords.split(",")
-            return f"Found '{text}' at ({x.strip()}, {y.strip()}) after scrolling. Use click_at to click it."
+            parts = coords.split(",")
+            if len(parts) >= 2:
+                x, y = parts[0].strip(), parts[1].strip()
+                return f"Found '{text}' at ({x}, {y}) after scrolling. Use click_at to click it."
 
     return f"'{text}' not found on screen (tried scrolling)."
 
@@ -163,7 +176,8 @@ def get_open_windows() -> str:
          "Get-Process | Where-Object {$_.MainWindowTitle} | Select-Object -ExpandProperty MainWindowTitle"],
         capture_output=True, text=True,
     )
-    return result.stdout.strip() or "No open windows found."
+    stdout = _safe_str(result.stdout if result.stdout else "")
+    return stdout or "No open windows found."
 
 
 def focus_window(title: str) -> str:
