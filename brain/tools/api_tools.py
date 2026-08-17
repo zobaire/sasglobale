@@ -55,6 +55,21 @@ def _spotify_token() -> tuple[str, str | None]:
         return "", f"Spotify auth error: {e}"
 
 
+def _spotify_device_id(headers: dict) -> str | None:
+    """Return the id of the first available device, or None if none found."""
+    try:
+        r = requests.get("https://api.spotify.com/v1/me/player/devices",
+                         headers=headers, timeout=10)
+        if r.status_code != 200:
+            return None
+        devices = r.json().get("devices", [])
+        # Prefer an active device; fall back to any available one.
+        active = next((d for d in devices if d.get("is_active")), None)
+        return (active or devices[0]).get("id") if devices else None
+    except Exception:
+        return None
+
+
 def spotify_control(action: str) -> str:
     """Control Spotify playback: play, pause, next, previous."""
     access_token, err = _spotify_token()
@@ -76,12 +91,20 @@ def spotify_control(action: str) -> str:
         return f"Unknown Spotify action: {action}. Use play, pause, next, previous."
 
     method, url = endpoints[action]
+    params = {}
+    # Target a specific device so playback doesn't fail with NO_ACTIVE_DEVICE.
+    if action in ("play", "resume"):
+        device_id = _spotify_device_id(headers)
+        if device_id:
+            params["device_id"] = device_id
     try:
-        r = requests.put(url, headers=headers, timeout=10) if method == "PUT" \
-            else requests.post(url, headers=headers, timeout=10)
+        if method == "PUT":
+            r = requests.put(url, headers=headers, params=params, timeout=10)
+        else:
+            r = requests.post(url, headers=headers, params=params, timeout=10)
         if r.status_code in (200, 202, 204):
             return f"Spotify: {action} OK"
-        return f"Spotify {action}: {r.status_code}"
+        return f"Spotify {action}: {r.status_code} {r.text[:120]}"
     except Exception as e:
         return f"Spotify error: {e}"
 
@@ -135,14 +158,20 @@ def spotify_play_song(query: str) -> str:
         name = track["name"]
         artists = ", ".join(a["name"] for a in track["artists"])
 
-        # Queue it by playing the URI on the active device
+        # Target a specific device so playback doesn't fail with NO_ACTIVE_DEVICE.
+        params = {}
+        device_id = _spotify_device_id(headers)
+        if device_id:
+            params["device_id"] = device_id
+
         p = requests.put(
             "https://api.spotify.com/v1/me/player/play",
+            params=params,
             json={"uris": [uri]},
             headers=headers, timeout=10)
         if p.status_code in (200, 202, 204):
             return f"Now playing: {name} — {artists}"
-        return f"Spotify play error: {p.status_code} ({name} not started)"
+        return f"Spotify play error: {p.status_code} ({name} not started) {p.text[:120]}"
     except Exception as e:
         return f"Spotify play error: {e}"
 

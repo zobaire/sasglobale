@@ -93,6 +93,37 @@ class Memory:
         if any(t in lowered for t in _FACT_TRIGGERS):
             self.store_fact(user_message)
 
+    def store_remember(self, text: str) -> None:
+        """Persist a 'remember this' memory to memory_data/remembered.json.
+
+        Survives restarts (it's a plain JSON file) and is loaded both into
+        the prompt and into the UI's 3D bubble graph.
+        """
+        path = _repo_root() / "memory_data" / "remembered.json"
+        items = self.load_remembered()
+        # Dedupe by exact text.
+        for it in items:
+            if it.get("text") == text:
+                return
+        items.append({
+            "text": text,
+            "ts": datetime.now(timezone.utc).isoformat(),
+        })
+        try:
+            path.write_text(json.dumps(items, indent=2, ensure_ascii=False), encoding="utf-8")
+        except Exception as e:
+            print(f"[WARN] Failed to write remembered.json: {e}")
+
+    def load_remembered(self) -> list[dict]:
+        """Load all persisted 'remember' memories."""
+        path = _repo_root() / "memory_data" / "remembered.json"
+        if not path.exists():
+            return []
+        try:
+            return json.loads(path.read_text(encoding="utf-8"))
+        except Exception:
+            return []
+
     def load_legacy_facts(self) -> list[str]:
         """Load facts from legacy facts.json and notes.md into the prompt."""
         facts_path = _repo_root() / "memory_data" / "facts.json"
@@ -113,6 +144,9 @@ class Memory:
                         lines.append(line)
             except Exception:
                 pass
+        # Include persisted "remember" memories too.
+        for it in self.load_remembered():
+            lines.append(f"- {it.get('text', '')}")
         return lines
 
     def load_routines(self) -> list[dict]:

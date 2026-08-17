@@ -177,6 +177,38 @@ def _execute_tool(name: str, args: dict) -> str:
     return result
 
 
+_REMEMBER_PATTERNS = [
+    "remember that", "remember this", "remember:",
+    "remember ", "don't forget", "don't forget that", "keep in mind",
+    "note that", "note this", "save this", "save that",
+]
+
+
+def _extract_remember(user_text: str) -> str | None:
+    """If the user is asking Lydia to remember something, return the memory text."""
+    lowered = user_text.strip().lower()
+    for pat in _REMEMBER_PATTERNS:
+        idx = lowered.find(pat)
+        if idx != -1:
+            # Grab everything after the trigger phrase.
+            rest = user_text[idx + len(pat):].strip().strip(":'\".,!?")
+            # Clean up "remember that X" / "remember X"
+            rest = rest.lstrip("that ").strip()
+            if rest and len(rest) > 2:
+                return rest
+    return None
+
+
+def _handle_remember(user_text: str) -> str | None:
+    """If it's a remember request, store it, broadcast to UI, return confirmation."""
+    memory_text = _extract_remember(user_text)
+    if not memory_text:
+        return None
+    _memory.store_remember(memory_text)
+    broadcast({"type": "memory", "text": memory_text})
+    return f"Got it — I'll remember that: \"{memory_text}\""
+
+
 def process_request(user_text: str) -> str:
     """Process a user message and return the assistant's text response."""
     _check_abort()
@@ -186,6 +218,15 @@ def process_request(user_text: str) -> str:
     _play_beep()
     broadcast({"type": "user", "text": user_text})
     broadcast({"type": "status", "message": "Thinking..."})
+
+    # "Remember X" — short-circuit before the LLM: store it, show it as a
+    # 3D bubble in the UI, and reply immediately.
+    remember_reply = _handle_remember(user_text)
+    if remember_reply:
+        _context.add("user", user_text)
+        _context.add("assistant", remember_reply)
+        broadcast({"type": "response", "text": remember_reply})
+        return remember_reply
 
     facts = _memory.search_facts(user_text)
     messages = _context.get_messages()

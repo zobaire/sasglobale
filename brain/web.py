@@ -7,8 +7,8 @@ from pathlib import Path
 
 import requests
 import uvicorn
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.responses import HTMLResponse
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, UploadFile, File
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from brain.config import load_config, get_providers, set_active_provider
@@ -94,6 +94,16 @@ def _load_notes() -> str:
     return ""
 
 
+def _load_remembered() -> list[dict]:
+    path = _MEMORY_DIR / "remembered.json"
+    if path.exists():
+        try:
+            return json.loads(path.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+    return []
+
+
 def _get_effort_tier() -> str:
     path = _MEMORY_DIR / "effort.json"
     if path.exists():
@@ -140,6 +150,8 @@ def _translate_event(evt: dict) -> dict | None:
         return {"type": "schedule", "events": evt.get("events", [])}
     elif t == "reminder":
         return {"type": "reminder", "text": evt.get("text", ""), "event": evt.get("event", "")}
+    elif t == "memory":
+        return {"type": "memory", "text": evt.get("text", "")}
     return evt
 
 
@@ -194,6 +206,38 @@ async def api_battery():
     return result
 
 
+_IMPORT_DIR = Path(__file__).parent.parent / "imports"
+
+
+@app.post("/api/import")
+async def api_import(files: list[UploadFile] = File(...)):
+    """Accept file uploads from the UI, save them into /imports, and log a memory note."""
+    _IMPORT_DIR.mkdir(parents=True, exist_ok=True)
+    saved: list[str] = []
+    errors: list[str] = []
+    for f in files:
+        try:
+            # sanitize filename
+            name = Path(f.filename or "file").name
+            dest = _IMPORT_DIR / name
+            data = await f.read()
+            dest.write_bytes(data)
+            saved.append(name)
+        except Exception as e:
+            errors.append(f"{f.filename}: {e}")
+    # Log an import note so it shows up in memory/graph
+    if saved:
+        try:
+            note = _MEMORY_DIR / "notes.md"
+            existing = note.read_text(encoding="utf-8") if note.exists() else ""
+            line = "Imported files: " + ", ".join(saved)
+            if line not in existing:
+                note.write_text((existing + "\n- " + line).strip() + "\n", encoding="utf-8")
+        except Exception:
+            pass
+    return JSONResponse({"saved": saved, "errors": errors})
+
+
 # --- WebSocket ---
 
 @app.websocket("/ws")
@@ -206,6 +250,7 @@ async def websocket_endpoint(ws: WebSocket):
     await ws.send_text(json.dumps({"type": "state",
         "routines": _load_routines(),
         "notes": _load_notes(),
+        "remembered": _load_remembered(),
     }))
     await ws.send_text(json.dumps({"type": "effort", "tier": _get_effort_tier()}))
     await ws.send_text(json.dumps({"type": "lang", "lang": "en", "name": "English"}))
