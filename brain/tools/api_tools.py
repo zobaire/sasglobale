@@ -6,27 +6,17 @@ from pathlib import Path
 
 import requests
 
+from brain.config import load_dotenv
+
 _REPO_ROOT = Path(__file__).parent.parent.parent
-_ENV_FILE = _REPO_ROOT / ".env"
 _MEMORY_DIR = _REPO_ROOT / "memory_data"
-
-
-def _load_env() -> dict[str, str]:
-    env = {}
-    if _ENV_FILE.exists():
-        for line in _ENV_FILE.read_text(encoding="utf-8").splitlines():
-            line = line.strip()
-            if line and not line.startswith("#") and "=" in line:
-                k, v = line.split("=", 1)
-                env[k.strip()] = v.strip()
-    return env
 
 
 # --- Spotify ---
 
 def _spotify_token() -> tuple[str, str | None]:
     """Return (access_token, error). Reads credentials + refreshes token."""
-    env = _load_env()
+    env = load_dotenv()
     client_id = env.get("SPOTIFY_CLIENT_ID", "")
     client_secret = env.get("SPOTIFY_CLIENT_SECRET", "")
     if not client_id or not client_secret:
@@ -180,7 +170,7 @@ def spotify_play_song(query: str) -> str:
 
 def discord_check() -> str:
     """Check Discord server status."""
-    env = _load_env()
+    env = load_dotenv()
     token = env.get("DISCORD_BOT_TOKEN", "")
     guild_id = env.get("DISCORD_GUILD_ID", "")
     if not token or not guild_id:
@@ -207,7 +197,7 @@ def discord_check() -> str:
 
 def tebex_check() -> str:
     """Check Tebex store for recent sales."""
-    env = _load_env()
+    env = load_dotenv()
     secret = env.get("TEBEX_SECRET", "")
     if not secret:
         return "Tebex not configured."

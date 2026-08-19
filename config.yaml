@@ -26,21 +26,18 @@ providers:
   deepseek:
     type: openai
     label: DeepSeek
-    model: deepseek-chat
+    model: deepseek-v4-flash
     base_url: https://api.deepseek.com/v1
-    api_key: sk-05e04ea50217416cbed82fb2d7eb6ad6
   kimi:
     type: openai
     label: Kimi
     model: kimi-k3
     base_url: https://api.moonshot.cn/v1
-    api_key: sk-Silxr5W2Gw4trh4q5J1G8RoJhxvjLp74e4YzCXhpP5WlFbWg
   groq:
     type: openai
     label: Groq
     model: llama-3.3-70b-versatile
     base_url: https://api.groq.com/openai/v1
-    api_key: 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
 context:
   max_messages: 24
   summarize_after: 16
@@ -64,8 +61,14 @@ wake_word:
   cooldown: 1.5
   interrupt_cooldown: 0.6
 ui:
-  host: 0.0.0.0
+  host: 127.0.0.1
   port: 8765
+vision:
+  provider: gemini
+  model: gemini-3.6-flash
+  fallbacks:
+    - provider: kimi
+      model: kimi-latest
 tools:
   web_search:
     max_results: 5

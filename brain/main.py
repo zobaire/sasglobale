@@ -21,15 +21,17 @@ from brain.tts import speak, speak_streamed, is_speaking, stop_speaking
 from brain.tools.router import TOOL_SCHEMAS, dispatch
 from brain.wake import listen_for_wake_word
 
-_MAX_TOOL_LOOPS = 15
+_MAX_TOOL_LOOPS = int(load_config().get("brain", {}).get("max_tool_loops", 15))
 _MEMORY_DIR = Path(__file__).parent.parent / "memory_data"
 
 _abort = threading.Event()
 set_abort_event(_abort)
 _muted = threading.Event()
 
-_context = ContextManager()
 _memory = Memory()
+# Replay the last few persisted conversation summaries on boot so context
+# isn't wiped every restart.
+_context = ContextManager(initial_summaries=_memory.get_recent_summaries(5))
 
 
 class Aborted(Exception):
@@ -148,7 +150,7 @@ def _system_prompt() -> str:
 {lang_instruction}
 
 ## Your Capabilities
-- See the screen, click, type, scroll, take screenshots.
+- See the screen, click, type, scroll, take screenshots, and analyze screenshots/images (vision).
 - Open apps, URLs, control media, manage windows.
 - Web search, file read/write, run Python/shell, clipboard, system controls.
 - Coding: read project tree, grep code, edit files, run tests/linters.
@@ -169,9 +171,25 @@ Current time: {now}. Answer concisely unless more detail is needed."""
     return prompt.strip()
 
 
+# Only re-run tools that are safe to repeat after a transient failure —
+# read-only or idempotent ones. Side-effectful tools (write_file,
+# kill_process, power_command, ...) must NEVER be auto-retried: a "failure"
+# there can actually be a partial success, and re-dispatching doubles the
+# damage. Let the LLM see the error and decide instead.
+_RETRYABLE_TOOLS = {
+    "web_search", "fetch_page", "get_weather",
+    "read_screen", "find_on_screen", "get_open_windows",
+    "read_file", "list_files", "get_clipboard", "get_volume",
+    "get_system_info", "read_project", "grep_project", "read_symbols",
+    "run_tests", "run_linter", "check_apps_open", "discord_check",
+    "tebex_check", "check_business", "schedule_list", "spotify_search",
+    "analyze_image",
+}
+
+
 def _execute_tool(name: str, args: dict) -> str:
     result = dispatch(name, args)
-    if result.startswith("Tool '") and "failed:" in result:
+    if name in _RETRYABLE_TOOLS and result.startswith("Tool '") and "failed:" in result:
         time.sleep(0.5)
         result = dispatch(name, args)
     return result
@@ -245,6 +263,8 @@ def process_request(user_text: str) -> str:
             on_tool_call=lambda name, args: broadcast({"type": "tool", "name": name, "args": args}),
             on_tool_result=lambda name, result: broadcast({"type": "tool_result", "name": name, "result": result[:200]}),
             on_progress=lambda: speak_if_unmuted("Working on it."),
+            on_delta=lambda text: broadcast({"type": "assistant_delta", "text": text}),
+            on_reasoning=lambda text: broadcast({"type": "thought_delta", "text": text}),
         )
     except Aborted:
         raise

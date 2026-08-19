@@ -7,7 +7,7 @@ from typing import Callable
 
 import numpy as np
 
-from brain.config import load_config
+from brain.config import load_config, load_dotenv
 
 
 _MIC_PAUSE = threading.Event()
@@ -30,18 +30,6 @@ def consume_pending_wake() -> bool:
     return _pending_wake.is_set()
 
 
-def _load_env() -> dict[str, str]:
-    env = {}
-    env_file = Path(__file__).parent.parent / ".env"
-    if env_file.exists():
-        for line in env_file.read_text(encoding="utf-8").splitlines():
-            line = line.strip()
-            if line and not line.startswith("#") and "=" in line:
-                k, v = line.split("=", 1)
-                env[k.strip()] = v.strip().strip('"').strip("'")
-    return env
-
-
 def listen_for_wake_word(callback: Callable[[], None]) -> None:
     """Continuously listen for wake word. Blocks forever."""
     cfg = load_config().get("wake_word", {})
@@ -51,7 +39,7 @@ def listen_for_wake_word(callback: Callable[[], None]) -> None:
         return
 
     backend = cfg.get("backend", "openwakeword").lower()
-    env = _load_env()
+    env = load_dotenv()
     keyword_path = cfg.get("keyword_path", "") or env.get("WAKE_KEYWORD_PATH", "")
 
     if backend == "porcupine" and keyword_path and Path(keyword_path).exists():
@@ -78,7 +66,7 @@ def _listen_porcupine(callback: Callable[[], None], cfg: dict) -> None:
     import pvporcupine
     import pyaudio
 
-    env = _load_env()
+    env = load_dotenv()
     access_key = cfg.get("access_key", "") or env.get("PICOVOICE_ACCESS_KEY", "")
     keyword_path = cfg.get("keyword_path", "") or env.get("WAKE_KEYWORD_PATH", "")
 

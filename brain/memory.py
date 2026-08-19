@@ -21,6 +21,40 @@ _FACT_TRIGGERS = [
     "call me", "i usually", "i always", "i never",
 ]
 
+# Phrases that match a trigger ("i have...", "i want...") but aren't real
+# facts — "i have a question" is not a memory, it's small talk. If the user
+# message is (or leads with) one of these, don't store it.
+_FACT_JUNK_PATTERNS = [
+    "i have a question", "i have a few questions", "i have a quick question",
+    "i have another question", "i have to ask", "i have to", "i have a doubt",
+    "i want to ask", "i want to know", "i want to ask you", "i'd like to ask",
+    "i would like to ask", "i want to", "i'd like to", "i would like to",
+    "i need help", "i need your help", "i need to ask", "i need a", "i need an",
+    "i need to", "i need you to", "can i ask", "can i have", "can i get",
+    "could you", "can you", "will you", "i'm wondering", "i am wondering",
+    "i was wondering", "i'm curious", "i am curious", "i'm just curious",
+    "i think", "i feel like", "i feel that", "i'm trying to", "i am trying to",
+    "i'm just", "i am just", "i was just", "i don't know", "i dont know",
+    "i'm not sure", "i am not sure", "i'm asking", "i am asking",
+    "i'm going to", "i am going to", "i'm looking for", "i am looking for",
+    "i'm having", "i am having", "i'm getting", "i am getting",
+]
+
+# Facts shorter than this are almost always fragments, not memories.
+_FACT_MIN_LENGTH = 12
+
+
+def _looks_like_fact(text: str) -> bool:
+    """True when a user message reads like a storable personal fact."""
+    lowered = text.strip().lower()
+    if not lowered or lowered.endswith("?"):
+        return False
+    if len(lowered) < _FACT_MIN_LENGTH:
+        return False
+    if any(p in lowered for p in _FACT_JUNK_PATTERNS):
+        return False
+    return any(t in lowered for t in _FACT_TRIGGERS)
+
 
 def _repo_root() -> Path:
     return Path(__file__).parent.parent
@@ -89,9 +123,8 @@ class Memory:
 
     def extract_and_store_facts(self, assistant_response: str, user_message: str) -> None:
         """Store user message as a fact when it contains personal info or preferences."""
-        lowered = user_message.lower()
-        if any(t in lowered for t in _FACT_TRIGGERS):
-            self.store_fact(user_message)
+        if _looks_like_fact(user_message):
+            self.store_fact(user_message.strip())
 
     def store_remember(self, text: str) -> None:
         """Persist a 'remember this' memory to memory_data/remembered.json.

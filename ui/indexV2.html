@@ -44,8 +44,8 @@
     -webkit-mask-image:radial-gradient(ellipse at center, black 30%, transparent 75%);}
   #vignette{position:fixed;inset:0;z-index:1;pointer-events:none;
     background:radial-gradient(ellipse at center,transparent 45%,rgba(6,7,13,0.85) 100%);}
-  #graph{position:fixed;inset:0;z-index:2;pointer-events:none;}
-  #graph canvas{width:100%;height:100%;display:block;}
+  #graph{position:fixed;inset:0;z-index:2;pointer-events:auto;}
+  #graph canvas{width:100%;height:100%;display:block;cursor:default;}
 
   /* ---------- HUD: neon glass dial ---------- */
   #hud{position:fixed;top:16px;left:18px;z-index:10;display:flex;align-items:center;gap:13px;
@@ -96,7 +96,7 @@
   .tool .res{color:var(--dim);display:block;margin-top:4px;font-size:10.5px;}
   @keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 
-  #chatwrap{left:50%;transform:translateX(-50%);bottom:16px;width:min(1240px,96vw);max-height:52vh;}
+  #chatwrap{left:50%;transform:translateX(-50%);bottom:16px;width:min(1440px,97vw);max-height:52vh;}
   #chat{max-height:30vh;}
   .msg{max-width:88%;padding:9px 14px;border:1px solid var(--line-strong);border-radius:16px;white-space:pre-wrap;word-wrap:break-word;animation:rise .2s ease both;font-size:13px;font-family:var(--sans);box-shadow:0 6px 20px rgba(0,0,0,0.35);}
   .msg.user{align-self:flex-end;background:rgba(125,227,208,0.12);border-color:var(--cool-dim);border-bottom-right-radius:6px;box-shadow:0 6px 20px rgba(63,122,112,0.25);}
@@ -105,7 +105,7 @@
   .msg.user::before{content:"YOU";display:block;font-family:var(--mono);font-size:8px;letter-spacing:2px;color:var(--cool-dim);margin-bottom:4px;}
 
   #composer{display:flex;align-items:center;gap:8px;padding:12px 14px;border-top:1px solid var(--line);background:rgba(255,255,255,0.03);}
-  #box{flex:1;background:rgba(255,255,255,0.06);border:1px solid var(--line-strong);color:var(--paper);padding:14px 18px;outline:none;font:14px var(--sans);border-radius:24px;transition:border-color .2s,box-shadow .2s;}
+  #box{flex:1;background:rgba(255,255,255,0.06);border:1px solid var(--line-strong);color:var(--paper);padding:15px 22px;outline:none;font:15px var(--sans);border-radius:24px;transition:border-color .2s,box-shadow .2s;}
   #box:focus{border-color:var(--accent-dim);box-shadow:0 0 0 3px rgba(90,116,208,0.25),0 0 20px rgba(90,116,208,0.2);}
   #box::placeholder{color:var(--dimmer);}
   .cbtn{width:38px;height:38px;border:1px solid var(--line-strong);background:rgba(255,255,255,0.05);color:var(--paper);font-size:14px;cursor:pointer;display:grid;place-items:center;transition:all .15s;flex:none;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.3);}
@@ -236,6 +236,16 @@
   .mev .mtext{font-size:12.5px;color:var(--paper);white-space:pre-wrap;word-wrap:break-word;}
   .mev .mtime{font-family:var(--mono);font-size:9px;color:var(--dimmer);margin-top:4px;}
   #mempty{font-family:var(--mono);font-size:10.5px;color:var(--dimmer);text-align:center;padding:14px 8px;}
+
+  /* ---------- chat timestamps + copy ---------- */
+  .msg{position:relative;cursor:pointer;}
+  .msg:hover{border-color:var(--accent-dim);}
+  .msg .mtime{display:block;font-family:var(--mono);font-size:8px;letter-spacing:.5px;color:var(--dimmer);margin-top:4px;text-align:right;opacity:.75;}
+  .msg.copied{border-color:var(--cool);box-shadow:0 0 0 3px rgba(125,227,208,0.18);}
+
+  /* ---------- collapsible panel toggle ---------- */
+  .ptoggle{margin-left:auto;background:transparent;border:1px solid var(--line);color:var(--dimmer);width:20px;height:20px;border-radius:6px;cursor:pointer;font-family:var(--mono);font-size:12px;line-height:1;flex:none;display:grid;place-items:center;transition:all .15s;}
+  .ptoggle:hover{color:var(--paper);border-color:var(--accent-dim);box-shadow:0 0 10px rgba(90,116,208,0.35);}
 </style>
 </head>
 <body>
@@ -275,12 +285,13 @@
   <div id="modelbar">
     <span class="mlabel">MODEL</span>
     <div id="model" class="mseg">
-      <button type="button" class="mbtn" data-model="deepseek" title="Current model: deepseek-chat on DeepSeek API. Strong for code & reasoning.">DeepSeek</button>
+      <button type="button" class="mbtn" data-model="deepseek" title="Current model: deepseek-v4-flash on DeepSeek API. Fast, cheap, and smart.">DeepSeek</button>
       <button type="button" class="mbtn" data-model="kimi" title="Current model: kimi-k3 on Moonshot API. Balanced general brain.">Kimi</button>
       <button type="button" class="mbtn" data-model="groq" title="Current model: llama-3.3-70b on Groq. Fastest responses.">Groq</button>
     </div>
   </div>
   <form id="composer">
+    <button type="button" id="clear" class="cbtn" title="Clear chat">&#128465;</button>
     <label id="file" class="cbtn" title="Attach a file">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
       <input type="file" id="fileinput" multiple style="display:none;">
@@ -301,7 +312,7 @@
   <div class="dbody"></div>
 </div>
 
-<div id="hint">drag to orbit · scroll to zoom · click a node</div>
+<div id="hint">click a node for details · <span id="clock"></span></div>
 
 <!-- Schedule / Plans panel -->
 <div id="schedule-panel">
@@ -342,6 +353,7 @@
 <script>
 const $ = id => document.getElementById(id);
 let ws, deepEl=null;
+let streamEl=null;   // the in-progress streaming assistant bubble
 let remembered=[];
 
 function escapeHtml(s){return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
@@ -362,6 +374,14 @@ function initGraph(){
   }
   size();
   window.addEventListener('resize', size);
+  cv.addEventListener('mousemove', e=>{
+    const n=hitTest(e.clientX, e.clientY);
+    cv.style.cursor = n ? 'pointer' : 'default';
+  });
+  cv.addEventListener('click', e=>{
+    const n=hitTest(e.clientX, e.clientY);
+    if(n){ showDetail(n); } else { $('detail').classList.remove('show'); }
+  });
   graphActive=true;
   requestAnimationFrame(graphLoop);
 }
@@ -499,6 +519,17 @@ function pulseCore(mode){
   core.color = mode==='talking'?'#7aa2ff':mode==='listening'?'#7de3d0':mode==='thinking'?'#7aa2ff':'#7aa2ff';
 }
 
+function hitTest(mx,my){
+  const nodes=[...nodeMap.values()];
+  for(const n of nodes){
+    if(n.x==null) continue;
+    const r=Math.max(n.size*2.2, 7);
+    const dx=mx-n.x, dy=my-n.y;
+    if(dx*dx+dy*dy <= (r+6)*(r+6)) return n;
+  }
+  return null;
+}
+
 function showDetail(node){
   const el=$('detail');
   el.querySelector('.dtitle').textContent=node.label;
@@ -510,10 +541,17 @@ function showDetail(node){
 /* ---------- websocket ---------- */
 function connect(){
   const proto = location.protocol==='https:' ? 'wss:' : 'ws:';
-  ws=new WebSocket(`${proto}//${location.host}/ws`);
-  ws.onopen=()=>setStatus('connected');
-  ws.onclose=()=>{setStatus('disconnected — retrying');setTimeout(connect,1500);};
-  ws.onmessage=e=>handle(JSON.parse(e.data));
+  // Ask the server for the WS token first (loopback-only endpoint). When the
+  // UI is bound to 127.0.0.1 this returns it freely; when exposed to the LAN
+  // it only answers requests from this machine, so remote pages can't drive
+  // the assistant.
+  fetch('/api/token').then(r=>r.json()).then(d=>{
+    const tok=(d&&d.token)?'?token='+encodeURIComponent(d.token):'';
+    ws=new WebSocket(`${proto}//${location.host}/ws${tok}`);
+    ws.onopen=()=>setStatus('connected');
+    ws.onclose=()=>{setStatus('disconnected — retrying');setTimeout(connect,1500);};
+    ws.onmessage=e=>handle(JSON.parse(e.data));
+  }).catch(()=>{setStatus('offline — token refused');setTimeout(connect,2500);});
 }
 let curListening=true;
 function setStatus(text){
@@ -530,17 +568,52 @@ function setStatus(text){
 }
 function add(parent,el){parent.appendChild(el);parent.scrollTop=parent.scrollHeight;while(parent.children.length>200)parent.removeChild(parent.firstChild);}
 function bubble(cls,text){const d=document.createElement('div');d.className=cls;d.textContent=text;return d;}
+function chatBubble(cls,text){
+  const d=bubble(cls,text);
+  d.dataset.raw=text;
+  const t=document.createElement('span');
+  t.className='mtime';
+  t.textContent=new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+  d.appendChild(t);
+  return d;
+}
 function handle(evt){
   switch(evt.type){
-    case 'user': add($('chat'),bubble('msg user',evt.text)); break;
-    case 'assistant': add($('chat'),bubble('msg assistant',evt.text)); break;
+    case 'user': streamEl=null; add($('chat'),chatBubble('msg user',evt.text)); break;
+    case 'assistant_delta':
+      // Live streaming of the final answer — append tokens to the current bubble.
+      if(!streamEl || !streamEl.isConnected){
+        streamEl=chatBubble('msg assistant','');
+        streamEl.dataset.streaming='1';
+        add($('chat'),streamEl);
+        const ts=streamEl.querySelector('.mtime');
+        if(ts) ts.remove(); // timestamp goes back on once the stream finishes
+      }
+      streamEl.textContent+=(evt.text||'');
+      $('chat').scrollTop=$('chat').scrollHeight;
+      break;
+    case 'assistant':
+      // Final full text. If we were streaming into a bubble, finalize it in
+      // place (no duplicate); otherwise render a fresh one.
+      if(streamEl && streamEl.isConnected){
+        streamEl.dataset.raw=evt.text;
+        streamEl.textContent=evt.text;
+        const t=document.createElement('span');
+        t.className='mtime';
+        t.textContent=new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+        streamEl.appendChild(t);
+      } else {
+        add($('chat'),chatBubble('msg assistant',evt.text));
+      }
+      streamEl=null;
+      break;
     case 'status': setStatus(evt.text); break;
     case 'thought':
       add($('thoughtscroll'),bubble('thought'+(evt.stream_start?' deepthink':''),evt.text));
       if(evt.stream_start){deepEl=bubble('thought deepthink','');add($('thoughtscroll'),deepEl);} break;
     case 'thought_delta':
-      //if(!deepEl){deepEl=bubble('thought deepthink','');add($('thoughtscroll'),deepEl);}
-      //deepEl.textContent+=evt.text;$('thoughtscroll').scrollTop=$('thoughtscroll').scrollHeight; break;
+      if(!deepEl){deepEl=bubble('thought deepthink','');add($('thoughtscroll'),deepEl);}
+      deepEl.textContent+=evt.text||'';$('thoughtscroll').scrollTop=$('thoughtscroll').scrollHeight; break;
     case 'tool':{deepEl=null;const el=bubble('tool',`→ ${evt.name}(${JSON.stringify(evt.args)})`);el.dataset.tool=evt.name;add($('thoughtscroll'),el);break;}
     case 'tool_result':{const t=$('thoughtscroll').querySelectorAll('.tool');const last=t[t.length-1];
       if(last&&last.dataset.tool===evt.name&&!last.querySelector('.res')){const r=document.createElement('span');r.className='res';r.textContent=evt.text;last.appendChild(r);}break;}
@@ -575,7 +648,7 @@ function handle(evt){
     case 'schedule_msg': $('schedule-msg').textContent=evt.text; break;
     case 'reminder':
       $('schedule-msg').textContent='⏰ '+evt.text;
-      add($('chat'),bubble('msg assistant','⏰ '+evt.text));
+      add($('chat'),chatBubble('msg assistant','⏰ '+evt.text));
       break;
   }
 }
@@ -649,7 +722,31 @@ document.querySelectorAll('#model .mbtn').forEach(b=>{
   b.onclick=()=>{if(ws&&ws.readyState===1)ws.send(JSON.stringify({type:'switch_model',model:b.dataset.model}));};
 });
 
-$('composer').onsubmit=e=>{e.preventDefault();const t=$('box').value.trim();if(!t||!ws||ws.readyState!==1)return;ws.send(JSON.stringify({type:'user_text',text:t}));$('box').value='';};
+$('composer').onsubmit=e=>{e.preventDefault();const t=$('box').value.trim();if(!t||!ws||ws.readyState!==1)return;ws.send(JSON.stringify({type:'user_text',text:t}));history.push(t);histIdx=history.length;$('box').value='';};
+
+/* ---------- file attach → /api/import ---------- */
+$('fileinput').addEventListener('change', async e=>{
+  const files=[...e.target.files];
+  e.target.value='';
+  if(!files.length) return;
+  const names=files.map(f=>f.name);
+  add($('chat'),chatBubble('msg user','📎 Attached:\n'+names.join('\n')));
+  const fd=new FormData();
+  files.forEach(f=>fd.append('files',f));
+  try{
+    const r=await fetch('/api/import',{method:'POST',body:fd});
+    const j=await r.json();
+    const errs=j.errors||[];
+    if(errs.length){
+      add($('chat'),chatBubble('msg assistant','⚠️ Could not save: '+errs.join('; ')));
+    }else{
+      add($('chat'),chatBubble('msg assistant','Saved to imports/ — I can read those now.'));
+    }
+  }catch(err){
+    add($('chat'),chatBubble('msg assistant','⚠️ Upload failed: '+(err.message||err)));
+  }
+});
+
 $('mic').onclick=()=>{if(ws&&ws.readyState===1)ws.send(JSON.stringify({type:'wake'}));};
 $('stop').onclick=()=>{if(ws&&ws.readyState===1)ws.send(JSON.stringify({type:'stop'}));};
 $('lang').onclick=()=>{if(ws&&ws.readyState===1)ws.send(JSON.stringify({type:'set_lang',lang:curLang==='en'?'zh':'en'}));};
@@ -753,6 +850,56 @@ function saveSchedule(){
 }
 $('ssave').onclick=saveSchedule;
 $('smtitle').addEventListener('keydown',e=>{if(e.key==='Enter')saveSchedule();});
+
+/* ---------- chat: copy, clear, history ---------- */
+$('chat').addEventListener('click', e=>{
+  const m=e.target.closest('.msg');
+  if(!m || !m.dataset.raw) return;
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(m.dataset.raw).catch(()=>{});
+  }
+  m.classList.add('copied');
+  setTimeout(()=>m.classList.remove('copied'), 500);
+});
+$('clear').onclick=()=>{ $('chat').innerHTML=''; };
+let history=[], histIdx=0;
+$('box').addEventListener('keydown', e=>{
+  if(e.key==='ArrowUp'){
+    e.preventDefault();
+    if(histIdx>0){ histIdx--; $('box').value=history[histIdx]||''; }
+  } else if(e.key==='ArrowDown'){
+    e.preventDefault();
+    if(histIdx<history.length){ histIdx++; $('box').value=history[histIdx]||''; }
+  } else if(e.key==='Escape'){
+    $('detail').classList.remove('show');
+  }
+});
+
+/* ---------- collapsible panels ---------- */
+function makeCollapsible(panel, body){
+  const h=panel.querySelector('h2');
+  if(!h) return;
+  const btn=document.createElement('button');
+  btn.type='button';
+  btn.className='ptoggle';
+  btn.textContent='—';
+  btn.title='Collapse';
+  h.appendChild(btn);
+  let open=true;
+  btn.onclick=()=>{
+    open=!open;
+    body.style.display=open?'':'none';
+    btn.textContent=open?'—':'+';
+  };
+}
+makeCollapsible($('thoughts'), $('thoughtscroll'));
+makeCollapsible($('schedule-panel'), $('sevents'));
+makeCollapsible($('memory-panel'), $('mevents'));
+
+/* ---------- clock ---------- */
+function tickClock(){ const el=$('clock'); if(el) el.textContent=new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'}); }
+tickClock();
+setInterval(tickClock, 1000);
 
 initGraph();
 updateGraph([], '');

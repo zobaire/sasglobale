@@ -1,5 +1,6 @@
 """Lydia configuration loader and manager."""
 from __future__ import annotations
+import copy
 import os
 from pathlib import Path
 from typing import Any
@@ -10,8 +11,12 @@ _CONFIG_PATH = Path(__file__).parent.parent / "config.yaml"
 _ENV_PATH = Path(__file__).parent.parent / ".env"
 
 
-def _load_dotenv() -> dict[str, str]:
-    """Parse .env file manually (no python-dotenv dependency required)."""
+def load_dotenv() -> dict[str, str]:
+    """Parse .env file manually (no python-dotenv dependency required).
+
+    Single source of truth for .env parsing — web.py, stt.py, tts.py and
+    wake.py should import this instead of copy-pasting their own parser.
+    """
     env: dict[str, str] = {}
     if not _ENV_PATH.exists():
         return env
@@ -41,7 +46,7 @@ def load_config() -> dict[str, Any]:
         with open(_CONFIG_PATH, "r", encoding="utf-8") as f:
             cfg = yaml.safe_load(f) or default_config()
 
-    env = _load_dotenv()
+    env = load_dotenv()
     for key in cfg.get("providers", {}):
         env_key = _provider_env_key(key)
         if env_key in env and env[env_key]:
@@ -51,9 +56,17 @@ def load_config() -> dict[str, Any]:
 
 
 def save_config(cfg: dict[str, Any]) -> None:
-    """Save config.yaml to project root."""
+    """Save config.yaml to project root.
+
+    API keys are intentionally stripped before writing — they live in .env
+    only. This stops things like set_active_provider() from persisting key
+    material back into config.yaml.
+    """
+    to_save = copy.deepcopy(cfg)
+    for key in to_save.get("providers", {}):
+        to_save["providers"][key].pop("api_key", None)
     with open(_CONFIG_PATH, "w", encoding="utf-8") as f:
-        yaml.dump(cfg, f, default_flow_style=False, sort_keys=False)
+        yaml.dump(to_save, f, default_flow_style=False, sort_keys=False)
 
 
 def default_config() -> dict[str, Any]:
@@ -76,7 +89,7 @@ def default_config() -> dict[str, Any]:
             "deepseek": {
                 "type": "openai",
                 "label": "DeepSeek",
-                "model": "deepseek-pro",
+                "model": "deepseek-v4-flash",
                 "base_url": "https://api.deepseek.com/v1",
                 "api_key": "",
             },
@@ -110,7 +123,11 @@ def default_config() -> dict[str, Any]:
             "voice": "en-US-AriaNeural",
             "speed": "+0%",
         },
-        "ui": {"host": "0.0.0.0", "port": 8765},
+        "ui": {"host": "127.0.0.1", "port": 8765},
+        "vision": {
+            "provider": "kimi",
+            "model": "kimi-latest",
+        },
     }
 
 

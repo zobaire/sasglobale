@@ -2,16 +2,18 @@
 from __future__ import annotations
 import asyncio
 import json
+import os
+import secrets
 import threading
 from pathlib import Path
 
 import requests
 import uvicorn
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, UploadFile, File
+from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect, UploadFile, File
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from brain.config import load_config, get_providers, set_active_provider
+from brain.config import load_config, get_providers, set_active_provider, load_dotenv
 from brain.events import register
 from brain.memory import Memory
 from brain.battery import start as start_battery, get_latest
@@ -37,12 +39,31 @@ from brain.main import (
 
 _UI_DIR = Path(__file__).parent.parent / "ui"
 _MEMORY_DIR = Path(__file__).parent.parent / "memory_data"
-_ENV_FILE = Path(__file__).parent.parent / ".env"
+_TOKEN_PATH = _MEMORY_DIR / "web_token.txt"
 
 app = FastAPI(title="Lydia")
 _clients: list[WebSocket] = []
 _loop: asyncio.AbstractEventLoop | None = None
 _listening_enabled = True
+
+
+def _get_web_token() -> str:
+    """Return the persistent web token, generating one on first boot."""
+    tok = os.environ.get("LYDIA_WEB_TOKEN", "")
+    if tok:
+        return tok
+    if _TOKEN_PATH.exists():
+        tok = _TOKEN_PATH.read_text(encoding="utf-8").strip()
+        if tok:
+            return tok
+    tok = secrets.token_urlsafe(24)
+    _TOKEN_PATH.parent.mkdir(parents=True, exist_ok=True)
+    _TOKEN_PATH.write_text(tok, encoding="utf-8")
+    return tok
+
+
+def _is_loopback(client_ip: str) -> bool:
+    return client_ip in ("127.0.0.1", "::1", "localhost")
 # The currently-in-flight request future, so Stop can actually cancel it.
 _running_future: asyncio.Future | None = None
 # The actual worker thread running the request. Stop sets the sticky abort
@@ -58,17 +79,6 @@ _lock = threading.Lock()
 async def _capture_loop() -> None:
     global _loop
     _loop = asyncio.get_running_loop()
-
-
-def _load_env() -> dict[str, str]:
-    env = {}
-    if _ENV_FILE.exists():
-        for line in _ENV_FILE.read_text(encoding="utf-8").splitlines():
-            line = line.strip()
-            if line and not line.startswith("#") and "=" in line:
-                k, v = line.split("=", 1)
-                env[k.strip()] = v.strip()
-    return env
 
 
 # --- Memory helpers ---
@@ -195,18 +205,35 @@ async def api_battery():
     latest = get_latest()
     if latest:
         return latest
-    env = _load_env()
+    env = load_dotenv()
     result = {}
+    # No real telemetry yet — report "unknown" (pct: None) instead of lying
+    # with fake 50% meters. The UI renders null as "—".
     if env.get("DEEPSEEK_API_KEY", ""):
-        result["deepseek"] = {"pct": 50, "currency": "USD", "amount": 0, "available": True}
+        result["deepseek"] = {"pct": None, "currency": "USD", "amount": 0, "available": True}
     if env.get("KIMI_API_KEY", ""):
-        result["kimi"] = {"pct": 50, "currency": "USD", "amount": 0, "available": True}
+        result["kimi"] = {"pct": None, "currency": "USD", "amount": 0, "available": True}
     if env.get("GROQ_API_KEY", ""):
-        result["groq"] = {"pct": 50, "remaining": 0, "limit": 0, "available": True}
+        result["groq"] = {"pct": None, "remaining": 0, "limit": 0, "available": True}
     return result
 
 
 _IMPORT_DIR = Path(__file__).parent.parent / "imports"
+
+
+@app.get("/api/token")
+async def api_token(request: Request):
+    """Hand out the WS token — loopback clients only.
+
+    When the UI is bound to 0.0.0.0 the token is what keeps LAN randos from
+    driving the assistant (open apps, kill processes, shutdown…), so we never
+    leak it to non-local requests. The browser page itself fetches this, then
+    appends ?token= to the WebSocket URL.
+    """
+    client = request.client.host if request.client else ""
+    if not _is_loopback(client):
+        return JSONResponse({"error": "forbidden"}, status_code=403)
+    return JSONResponse({"token": _get_web_token()})
 
 
 @app.post("/api/import")
@@ -243,6 +270,16 @@ async def api_import(files: list[UploadFile] = File(...)):
 @app.websocket("/ws")
 async def websocket_endpoint(ws: WebSocket):
     global _running_future, _active_workers, _lock
+    # If the server is exposed beyond localhost, require the token. Bound to
+    # 127.0.0.1 (the default), the OS already keeps LAN clients out, so we
+    # skip the check to keep the localhost flow frictionless.
+    host = load_config().get("ui", {}).get("host", "127.0.0.1")
+    if host in ("0.0.0.0", "::", ""):
+        raw = ws.query_params.get("token", "")
+        token = raw[0] if isinstance(raw, list) and raw else raw
+        if token != _get_web_token():
+            await ws.close(code=4401, reason="Unauthorized")
+            return
     await ws.accept()
     _clients.append(ws)
 
@@ -458,7 +495,10 @@ async def websocket_endpoint(ws: WebSocket):
             _clients.remove(ws)
 
 
-def start_web_background(port: int = 8765, host: str = "0.0.0.0") -> None:
+def start_web_background(port: int = 8765, host: str = "127.0.0.1") -> None:
+    if host in ("0.0.0.0", "::"):
+        print(f"[WARN] UI bound to {host}:{port} — LAN clients must present the "
+              f"WS token (served to loopback only via /api/token).")
     register(broadcast_to_ws)
     start_battery()
     start_schedule()

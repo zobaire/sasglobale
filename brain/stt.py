@@ -8,7 +8,7 @@ import numpy as np
 import requests
 import sounddevice as sd
 
-from brain.config import load_config
+from brain.config import load_config, load_dotenv
 
 
 _ABORT_EVENT = None
@@ -89,20 +89,8 @@ def transcribe_audio(audio: np.ndarray, language: str | None = None) -> str:
     return f"[STT error: unknown provider '{provider}']"
 
 
-def _load_env() -> dict[str, str]:
-    env = {}
-    env_file = Path(__file__).parent.parent / ".env"
-    if env_file.exists():
-        for line in env_file.read_text(encoding="utf-8").splitlines():
-            line = line.strip()
-            if line and not line.startswith("#") and "=" in line:
-                k, v = line.split("=", 1)
-                env[k.strip()] = v.strip()
-    return env
-
-
 def _transcribe_groq(audio: np.ndarray, model: str, language: str) -> str:
-    api_key = _load_env().get("GROQ_API_KEY", "")
+    api_key = load_dotenv().get("GROQ_API_KEY", "")
     if not api_key:
         return "[STT error: GROQ_API_KEY not set in .env]"
 

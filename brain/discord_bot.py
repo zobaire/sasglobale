@@ -7,25 +7,15 @@ import asyncio
 import threading
 from pathlib import Path
 
+from brain.config import load_dotenv
+
 _REPO_ROOT = Path(__file__).parent.parent
-_ENV_FILE = _REPO_ROOT / ".env"
 
 _typing_lock = threading.Lock()
 
 
-def _load_env() -> dict[str, str]:
-    env = {}
-    if _ENV_FILE.exists():
-        for line in _ENV_FILE.read_text(encoding="utf-8").splitlines():
-            line = line.strip()
-            if line and not line.startswith("#") and "=" in line:
-                k, v = line.split("=", 1)
-                env[k.strip()] = v.strip()
-    return env
-
-
 def _token() -> str:
-    return _load_env().get("DISCORD_BOT_TOKEN", "")
+    return load_dotenv().get("DISCORD_BOT_TOKEN", "")
 
 
 def _latest_screenshot() -> Path | None:

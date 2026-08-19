@@ -9,6 +9,7 @@ from brain.tools.desktop import (
     read_screen, find_on_screen, get_open_windows, focus_window,
     media_control, screenshot,
 )
+from brain.tools.vision import analyze_image
 from brain.tools.window_manager import split_windows_equally, check_apps_status
 from brain.tools.file_ops import read_file, write_file, list_files, apply_patch
 from brain.tools.code_exec import run_python
@@ -53,6 +54,7 @@ TOOL_MAP: dict[str, Callable[[dict], str]] = {
     "press_key": lambda a: press_key(a["keys"]),
     "media_control": lambda a: media_control(a["action"]),
     "screenshot": lambda a: screenshot(a.get("filename", "")),
+    "analyze_image": lambda a: analyze_image(a["path"], a.get("prompt", "Describe this image in detail.")),
     # Files
     "read_file": lambda a: read_file(a["path"]),
     "write_file": lambda a: write_file(a["path"], a["content"]),
@@ -210,6 +212,13 @@ TOOL_SCHEMAS: list[dict] = [
         "parameters": {"type": "object", "properties": {
             "filename": {"type": "string"}},
             "required": []}}},
+    {"type": "function", "function": {
+        "name": "analyze_image",
+        "description": "Analyze an image file or screenshot with a vision model. Use after screenshot() to truly 'see' the screen — describe layouts, icons, colors, errors, UI state, or read text that OCR struggles with. Returns a text description.",
+        "parameters": {"type": "object", "properties": {
+            "path": {"type": "string", "description": "Path to the image file — e.g. the path returned by screenshot(), or a file in Desktop/imports."},
+            "prompt": {"type": "string", "description": "What to look for. Be specific: 'What error message is shown?', 'Describe the layout', 'What buttons are visible?'"}},
+            "required": ["path"]}}},
 
     # --- Files ---
     {"type": "function", "function": {
