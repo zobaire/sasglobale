@@ -21,7 +21,7 @@
     --neon2:#b388ff;
     --glass-blur:24px;
     --shadow-deep:0 30px 80px rgba(0,0,0,0.75), 0 8px 24px rgba(0,0,0,0.5);
-    --shadow-neon:0 0 40px rgba(0,240,255,0.18), 0 0 80px rgba(0,240,255,0.08);
+    --shadow-neon:0 0 28px rgba(0,240,255,0.30), 0 0 70px rgba(0,240,255,0.16), 0 0 150px rgba(179,136,255,0.10);
     --shadow-inset:inset 0 1px 0 rgba(255,255,255,0.08), inset 0 0 40px rgba(0,240,255,0.03);
     --mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
     --sans:"Space Grotesk",system-ui,sans-serif;
@@ -96,22 +96,22 @@
   .tool .res{color:var(--dim);display:block;margin-top:4px;font-size:10.5px;}
   @keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 
-  #chatwrap{left:50%;transform:translateX(-50%);bottom:16px;width:min(1440px,97vw);max-height:52vh;}
+  #chatwrap{left:50%;transform:translateX(-50%);bottom:16px;width:min(1720px,98vw);max-height:52vh;}
   #chat{max-height:30vh;}
   .msg{max-width:88%;padding:9px 14px;border:1px solid var(--line-strong);border-radius:16px;white-space:pre-wrap;word-wrap:break-word;animation:rise .2s ease both;font-size:13px;font-family:var(--sans);box-shadow:0 6px 20px rgba(0,0,0,0.35);}
-  .msg.user{align-self:flex-end;background:rgba(125,227,208,0.12);border-color:var(--cool-dim);border-bottom-right-radius:6px;box-shadow:0 6px 20px rgba(63,122,112,0.25);}
-  .msg.assistant{align-self:flex-start;background:rgba(90,116,208,0.14);border-color:var(--line-strong);border-bottom-left-radius:6px;box-shadow:0 6px 20px rgba(90,116,208,0.2);}
+  .msg.user{align-self:flex-end;background:rgba(125,227,208,0.13);border-color:var(--cool-dim);border-bottom-right-radius:6px;box-shadow:0 8px 26px rgba(0,0,0,0.35),0 0 26px rgba(125,227,208,0.10);}
+  .msg.assistant{align-self:flex-start;background:rgba(90,116,208,0.15);border-color:var(--line-strong);border-bottom-left-radius:6px;box-shadow:0 8px 26px rgba(0,0,0,0.35),0 0 26px rgba(122,162,255,0.12);}
   .msg.assistant::before{content:"LYDIA";display:block;font-family:var(--mono);font-size:8px;letter-spacing:2px;color:var(--accent-dim);margin-bottom:4px;}
   .msg.user::before{content:"YOU";display:block;font-family:var(--mono);font-size:8px;letter-spacing:2px;color:var(--cool-dim);margin-bottom:4px;}
 
-  #composer{display:flex;align-items:center;gap:8px;padding:12px 14px;border-top:1px solid var(--line);background:rgba(255,255,255,0.03);}
-  #box{flex:1;background:rgba(255,255,255,0.06);border:1px solid var(--line-strong);color:var(--paper);padding:15px 22px;outline:none;font:15px var(--sans);border-radius:24px;transition:border-color .2s,box-shadow .2s;}
-  #box:focus{border-color:var(--accent-dim);box-shadow:0 0 0 3px rgba(90,116,208,0.25),0 0 20px rgba(90,116,208,0.2);}
+  #composer{display:flex;align-items:center;gap:10px;padding:14px 16px;border-top:1px solid var(--line);background:rgba(255,255,255,0.04);}
+  #box{flex:1;min-width:300px;background:rgba(255,255,255,0.07);border:1px solid var(--line-strong);color:var(--paper);padding:17px 26px;outline:none;font:16px var(--sans);border-radius:26px;transition:border-color .2s,box-shadow .2s;box-shadow:inset 0 2px 12px rgba(0,0,0,0.4),0 0 0 rgba(0,240,255,0);}
+  #box:focus{border-color:var(--accent-dim);box-shadow:inset 0 2px 12px rgba(0,0,0,0.4),0 0 0 3px rgba(90,116,208,0.28),0 0 34px rgba(0,240,255,0.28);}
   #box::placeholder{color:var(--dimmer);}
-  .cbtn{width:38px;height:38px;border:1px solid var(--line-strong);background:rgba(255,255,255,0.05);color:var(--paper);font-size:14px;cursor:pointer;display:grid;place-items:center;transition:all .15s;flex:none;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.3);}
-  .cbtn:hover{border-color:var(--accent-dim);color:var(--accent);box-shadow:0 0 18px rgba(90,116,208,0.35);}
-  #file{width:46px;height:46px;border:1px solid var(--cool-dim);background:rgba(125,227,208,0.06);color:var(--cool);cursor:pointer;transition:all .15s;flex:none;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.3);display:inline-flex;align-items:center;justify-content:center;}
-  #file:hover{border-color:var(--cool);color:var(--cool);box-shadow:0 0 18px rgba(125,227,208,0.4);}
+  .cbtn{width:44px;height:44px;border:1px solid var(--line-strong);background:rgba(255,255,255,0.05);color:var(--paper);font-size:14px;cursor:pointer;display:grid;place-items:center;transition:all .15s;flex:none;border-radius:13px;box-shadow:0 4px 14px rgba(0,0,0,0.35);}
+  .cbtn:hover{border-color:var(--accent-dim);color:var(--accent);box-shadow:0 0 20px rgba(90,116,208,0.45);}
+  #file{width:52px;height:52px;border:1px solid var(--cool-dim);background:rgba(125,227,208,0.07);color:var(--cool);cursor:pointer;transition:all .15s;flex:none;border-radius:14px;box-shadow:0 4px 16px rgba(0,0,0,0.4),0 0 16px rgba(125,227,208,0.12);display:inline-flex;align-items:center;justify-content:center;}
+  #file:hover{border-color:var(--cool);color:var(--cool);box-shadow:0 0 26px rgba(125,227,208,0.55);}
   #file::-webkit-file-upload-button{background:var(--cool-dim);border:0;color:#fff;padding:7px 14px;border-radius:8px;margin-right:10px;cursor:pointer;font-family:var(--sans);font-size:12px;font-weight:600;}
   #send{background:var(--accent-dim);border-color:var(--accent-dim);color:#fff;font-weight:700;border-radius:12px;box-shadow:0 4px 16px rgba(90,116,208,0.4);}
   #send:hover{background:var(--accent);border-color:var(--accent);box-shadow:0 0 22px rgba(90,116,208,0.6);}
@@ -134,7 +134,7 @@
   .ebtn[data-tier="ultra"].on{background:var(--accent);color:#fff;box-shadow:0 4px 16px rgba(90,116,208,0.5);}
 
   #detail{position:fixed;z-index:20;top:50%;right:16px;transform:translateY(-50%);width:300px;max-height:60vh;background:var(--panel-solid);border:1px solid var(--line-strong);border-radius:20px;display:none;flex-direction:column;overflow:hidden;
-    box-shadow:0 20px 60px rgba(0,0,0,0.5);backdrop-filter:blur(var(--glass-blur));-webkit-backdrop-filter:blur(var(--glass-blur));}
+    box-shadow:var(--shadow-deep),0 0 40px rgba(179,136,255,0.12);backdrop-filter:blur(var(--glass-blur));-webkit-backdrop-filter:blur(var(--glass-blur));}
   #detail.show{display:flex;animation:rise .18s ease both;}
   #detail .dhead{display:flex;align-items:center;justify-content:space-between;padding:13px 16px;border-bottom:1px solid var(--line);}
   #detail .dtitle{font-weight:600;font-size:13.5px;font-family:var(--sans);}
@@ -143,11 +143,13 @@
   #detail .dclose:hover{color:var(--alert);}
   #detail .dbody{padding:14px 16px;overflow-y:auto;white-space:pre-wrap;word-wrap:break-word;font-size:12.5px;font-family:var(--sans);color:var(--dim);}
   #hint{position:fixed;bottom:16px;left:18px;z-index:10;color:var(--dimmer);font-family:var(--mono);font-size:10px;letter-spacing:.5px;
-    padding:6px 12px;background:var(--panel);border:1px solid var(--line);border-radius:20px;backdrop-filter:blur(var(--glass-blur));-webkit-backdrop-filter:blur(var(--glass-blur));}
+    padding:6px 12px;background:var(--panel);border:1px solid var(--line-strong);border-radius:20px;box-shadow:var(--shadow-deep),0 0 16px rgba(0,240,255,0.06);
+    backdrop-filter:blur(var(--glass-blur));-webkit-backdrop-filter:blur(var(--glass-blur));}
 
   /* ---------- provider meters: glass pills ---------- */
   #batteries{position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:10;display:flex;gap:12px;
-    background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:8px 14px;
+    background:var(--panel);border:1px solid var(--line-strong);border-radius:18px;padding:8px 14px;
+    box-shadow:var(--shadow-deep),0 0 24px rgba(122,162,255,0.08);
     backdrop-filter:blur(var(--glass-blur));-webkit-backdrop-filter:blur(var(--glass-blur));}
   .batt{display:flex;flex-direction:column;align-items:center;gap:4px;opacity:.55;transition:opacity .3s;min-width:70px;}
   .batt .bname{font-family:var(--mono);font-size:8.5px;font-weight:700;letter-spacing:2px;color:var(--dimmer);transition:color .3s;}
@@ -277,6 +279,59 @@
   body.drag-active{user-select:none;-webkit-user-select:none;}
   .drag-hint{position:fixed;bottom:56px;left:50%;transform:translateX(-50%);z-index:70;font-family:var(--mono);font-size:10px;letter-spacing:1px;color:var(--dimmer);background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:6px 14px;pointer-events:none;opacity:0;transition:opacity .3s;box-shadow:var(--shadow-deep);}
   .drag-hint.show{opacity:1;}
+
+  /* ---------- Coding Mode dock (step 1: scaffold) ---------- */
+  #codedock{position:fixed;top:16px;right:16px;bottom:16px;width:min(560px,calc(100vw - 32px));z-index:40;
+    display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--line-strong);border-radius:20px;overflow:hidden;
+    box-shadow:var(--shadow-deep),var(--shadow-neon),var(--shadow-inset);
+    backdrop-filter:blur(var(--glass-blur));-webkit-backdrop-filter:blur(var(--glass-blur));
+    transform:translateX(calc(100% + 24px));
+    visibility:hidden;pointer-events:none;opacity:0;
+    transition:transform .22s ease,opacity .18s ease,visibility 0s .22s;}
+  #codedock.open{transform:none;visibility:visible;pointer-events:auto;opacity:1;
+    transition:transform .22s ease,opacity .18s ease;}
+  #codedock::before{content:"";position:absolute;inset:0;border-radius:20px;pointer-events:none;
+    background:linear-gradient(135deg, rgba(0,240,255,0.12), transparent 30%, transparent 70%, rgba(179,136,255,0.12));opacity:.6;}
+  .cd-head{position:relative;display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--line);flex:none;}
+  .cd-title{font-family:var(--mono);font-size:9.5px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--dimmer);display:flex;align-items:center;gap:8px;}
+  .cd-title::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--neon);box-shadow:0 0 10px var(--neon),0 0 20px var(--neon);flex:none;}
+  .cd-actions{display:flex;gap:6px;}
+  .cd-btn{width:28px;height:28px;border:1px solid var(--line);background:rgba(255,255,255,0.04);color:var(--dim);font-size:13px;line-height:1;cursor:pointer;display:grid;place-items:center;border-radius:8px;transition:all .15s;padding:0;font-family:var(--mono);}
+  .cd-btn:hover{color:var(--paper);border-color:var(--accent-dim);box-shadow:0 0 10px rgba(90,116,208,0.35);}
+  .cd-btn:disabled{opacity:.35;cursor:not-allowed;box-shadow:none;}
+  .cd-btn.cd-close:hover{color:var(--alert);border-color:var(--alert-dim);}
+  .cd-body{position:relative;flex:1;display:flex;min-height:0;}
+  .cd-tree{width:200px;flex:none;border-right:1px solid var(--line);overflow-y:auto;padding:10px 8px;display:flex;flex-direction:column;gap:4px;}
+  .cd-tree::-webkit-scrollbar{width:4px;}.cd-tree::-webkit-scrollbar-thumb{background:var(--line-strong);border-radius:4px;}
+  .cd-main{flex:1;display:flex;flex-direction:column;min-width:0;}
+  .cd-tabs{display:flex;gap:2px;padding:6px 8px 0;border-bottom:1px solid var(--line);overflow-x:auto;flex:none;min-height:34px;}
+  .cd-tabs::-webkit-scrollbar{height:3px;}.cd-tabs::-webkit-scrollbar-thumb{background:var(--line-strong);border-radius:3px;}
+  .cd-editor{flex:1;position:relative;min-height:0;}
+  .cd-empty{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:var(--dimmer);font-family:var(--mono);font-size:11px;text-align:center;padding:20px;line-height:1.6;}
+  .cd-empty .cd-big{font-size:24px;opacity:.55;color:var(--accent);text-shadow:0 0 16px rgba(122,162,255,0.4);}
+  .cd-statusbar{position:relative;display:flex;align-items:center;justify-content:space-between;padding:7px 14px;border-top:1px solid var(--line);font-family:var(--mono);font-size:9px;letter-spacing:1.5px;color:var(--dimmer);flex:none;background:rgba(255,255,255,0.02);}
+  #cdstatus{color:var(--cool);text-shadow:0 0 8px rgba(125,227,208,0.4);}
+
+  /* ---------- Coding Mode: tabs + CodeMirror 6 (step 2) ---------- */
+  .cd-tab{display:flex;align-items:center;gap:6px;padding:5px 10px;border:1px solid transparent;border-bottom:none;border-radius:10px 10px 0 0;color:var(--dim);font-family:var(--mono);font-size:10.5px;cursor:pointer;white-space:nowrap;max-width:190px;flex:none;transition:all .15s;background:transparent;user-select:none;}
+  .cd-tab:hover{color:var(--paper);background:rgba(255,255,255,0.04);}
+  .cd-tab.active{color:var(--paper);background:rgba(255,255,255,0.07);border-color:var(--line-strong);box-shadow:inset 0 2px 0 var(--accent-dim);}
+  .cd-tab .tname{overflow:hidden;text-overflow:ellipsis;}
+  .cd-tab .tdot{width:7px;height:7px;border-radius:50%;background:var(--neon);box-shadow:0 0 8px var(--neon);flex:none;display:none;}
+  .cd-tab.dirty .tdot{display:block;}
+  .cd-tab .cd-tabx{width:15px;height:15px;border-radius:50%;display:grid;place-items:center;color:var(--dimmer);font-size:10px;line-height:1;flex:none;background:transparent;border:0;cursor:pointer;padding:0;font-family:var(--mono);}
+  .cd-tab .cd-tabx:hover{color:var(--alert);background:rgba(255,107,122,0.14);}
+  #cdeditor{background:rgba(8,11,22,0.65);}
+  .cm-editor{height:100%;font-size:12.5px;}
+  .cm-editor .cm-scroller{font-family:var(--mono);line-height:1.65;overflow:auto;}
+  .cm-editor.cm-focused{outline:none;}
+  #cdempty{position:absolute;inset:0;z-index:2;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:var(--dimmer);font-family:var(--mono);font-size:11px;text-align:center;padding:20px;line-height:1.6;background:rgba(8,11,22,0.65);}
+  #cdempty .cd-big{font-size:24px;opacity:.55;color:var(--accent);text-shadow:0 0 16px rgba(122,162,255,0.4);}
+  /* toggle button active state */
+  #codebtn.on{border-color:var(--accent);color:var(--accent);background:rgba(90,116,208,0.12);box-shadow:0 0 18px rgba(90,116,208,0.5);}
+  /* while the dock is open, gently fade the top-right Thoughts panel so nothing stacks awkwardly */
+  #thoughts{transition:opacity .2s ease,transform .2s ease;}
+  body.code-open #thoughts{opacity:0;pointer-events:none;transform:scale(.98);}
 </style>
 </head>
 <body>
@@ -328,6 +383,9 @@
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
       <input type="file" id="fileinput" multiple style="display:none;">
     </label>
+    <button type="button" id="codebtn" class="cbtn" title="Open Coding Mode (Ctrl+B)">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+    </button>
     <input id="box" placeholder="Talk to Lydia…" autocomplete="off">
     <button type="button" id="lang" class="cbtn" title="Switch speaking language">EN</button>
     <button type="button" id="mute" class="cbtn" title="Mute voice">&#128266;</button>
@@ -376,6 +434,40 @@
   <div id="mevents">
     <div id="mempty">Nothing remembered yet.<br>Tell Lydia something to remember.</div>
   </div>
+</div>
+
+<!-- Coding Mode dock (step 1: scaffold — step 2: live CodeMirror 6 editor + tabs + save — folder tree lands step 3) -->
+<div id="codedock">
+  <div class="cd-head">
+    <div class="cd-title">Coding Mode</div>
+    <div class="cd-actions">
+      <button type="button" id="cdnew" class="cd-btn" title="New file (Ctrl+N)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      </button>
+      <button type="button" id="cdopen" class="cd-btn" title="Open file (Ctrl+O)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+      </button>
+      <button type="button" id="cdfolder" class="cd-btn" title="Open folder (step 3)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><line x1="12" y1="11" x2="12" y2="17"/><line x1="8" y1="14" x2="16" y2="14"/></svg>
+      </button>
+      <button type="button" id="cdsave" class="cd-btn" title="Save (Ctrl+S)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+      </button>
+      <button type="button" id="cdclose" class="cd-btn cd-close" title="Close (Ctrl+B)">&#10005;</button>
+    </div>
+  </div>
+  <div class="cd-body">
+    <div id="cdtree" class="cd-tree">
+      <div class="cd-empty"><div class="cd-big">&#128193;</div>No folder open.<br>Import lands in step 3.</div>
+    </div>
+    <div class="cd-main">
+      <div id="cdtabs" class="cd-tabs"></div>
+      <div id="cdeditor" class="cd-editor">
+        <div id="cdempty"><div class="cd-big">&lt;/&gt;</div>No file open.<br>Open a file, or drag one in here.</div>
+      </div>
+    </div>
+  </div>
+  <div class="cd-statusbar"><span id="cdstatus">READY</span><span id="cdmeta">no file</span></div>
 </div>
 
 <div id="toast">
@@ -474,28 +566,50 @@ function drawGraph(){
   const nodes=[...nodeMap.values()];
   // links — drawn from the stored graphLinks, no per-frame id pattern guessing
   ctx.lineWidth=1;
-  ctx.strokeStyle='rgba(122,162,255,0.28)';
+  ctx.strokeStyle='rgba(122,162,255,0.32)';
+  ctx.shadowColor='rgba(122,162,255,0.55)';
+  ctx.shadowBlur=4;
   for(const l of graphLinks){
     const a=nodeMap.get(l.source), b=nodeMap.get(l.target);
     if(!a||!b||a.x==null||b.x==null) continue;
     ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke();
   }
-  // nodes
+  ctx.shadowBlur=0;
+  // nodes — neon glow
   for(const n of nodes){
     if(n.x==null) continue;
+    const r=n.size*2.2;
     ctx.beginPath();
-    ctx.arc(n.x,n.y,n.size*2.2,0,Math.PI*2);
+    ctx.arc(n.x,n.y,r,0,Math.PI*2);
     ctx.fillStyle=n.color||'#7aa2ff';
+    ctx.shadowColor=n.color||'#7aa2ff';
+    ctx.shadowBlur=n.type==='core'?30:18;
     ctx.globalAlpha=0.95; ctx.fill(); ctx.globalAlpha=1;
-    ctx.strokeStyle='rgba(255,255,255,0.15)'; ctx.lineWidth=1; ctx.stroke();
+    ctx.shadowBlur=0;
+    ctx.strokeStyle='rgba(255,255,255,0.2)'; ctx.lineWidth=1; ctx.stroke();
+  }
+  // core pulse ring
+  const core=nodeMap.get('lydia');
+  if(core&&core.x!=null){
+    const pr=core.size*2.2+7+Math.sin(Date.now()/350)*3.5;
+    ctx.beginPath();
+    ctx.arc(core.x,core.y,pr,0,Math.PI*2);
+    ctx.strokeStyle='rgba(0,240,255,0.4)';
+    ctx.shadowColor='rgba(0,240,255,0.9)';
+    ctx.shadowBlur=14;
+    ctx.lineWidth=1.5;
+    ctx.stroke();
+    ctx.shadowBlur=0;
   }
   // labels
   for(const n of nodes){
     if(n.x==null) continue;
     ctx.font='11px "JetBrains Mono", monospace';
-    ctx.fillStyle='rgba(166,176,214,0.9)';
+    if(n.type==='core'){ctx.fillStyle='#00f0ff';ctx.shadowColor='#00f0ff';ctx.shadowBlur=10;}
+    else{ctx.fillStyle='rgba(166,176,214,0.92)';ctx.shadowBlur=0;}
     ctx.textAlign='center';
     ctx.fillText(n.label, n.x, n.y+n.size*2.2+14);
+    ctx.shadowBlur=0;
   }
 }
 
@@ -861,6 +975,27 @@ let curMuted=false;
 $('mute').onclick=()=>{if(ws&&ws.readyState===1)ws.send(JSON.stringify({type:'set_mute',muted:!curMuted}));};
 $('listenmute').onclick=()=>{if(ws&&ws.readyState===1)ws.send(JSON.stringify({type:'set_listen',listening:!curListening}));};
 
+/* ---------- Coding Mode dock (step 1: toggle) ---------- */
+let codingOpen=false;
+function setCoding(open){
+  codingOpen=open;
+  $('codedock').classList.toggle('open',open);
+  $('codebtn').classList.toggle('on',open);
+  $('codebtn').title=open?'Close Coding Mode (Ctrl+B)':'Open Coding Mode (Ctrl+B)';
+  document.body.classList.toggle('code-open',open);
+  if(window.CodeDock) window.CodeDock.onDockToggle(open);
+}
+$('codebtn').onclick=()=>setCoding(!codingOpen);
+$('cdclose').onclick=()=>setCoding(false);
+document.addEventListener('keydown', e=>{
+  if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='b'){
+    e.preventDefault();
+    setCoding(!codingOpen);
+  } else if(e.key==='Escape' && codingOpen){
+    setCoding(false);
+  }
+});
+
 /* ---------- Memory info ---------- */
 let memFull=[];
 function renderMemory(list){
@@ -1126,6 +1261,388 @@ initGraph();
 updateGraph([], '');
 restoreChat();
 connect();
+</script>
+
+<script type="importmap">
+{
+  "imports": {
+    "codemirror": "https://cdn.jsdelivr.net/npm/codemirror@6.0.2/dist/index.js",
+    "@codemirror/state": "https://cdn.jsdelivr.net/npm/@codemirror/state@6.5.2/dist/index.js",
+    "@codemirror/view": "https://cdn.jsdelivr.net/npm/@codemirror/view@6.37.2/dist/index.js",
+    "@codemirror/language": "https://cdn.jsdelivr.net/npm/@codemirror/language@6.11.1/dist/index.js",
+    "@codemirror/commands": "https://cdn.jsdelivr.net/npm/@codemirror/commands@6.8.1/dist/index.js",
+    "@codemirror/search": "https://cdn.jsdelivr.net/npm/@codemirror/search@6.5.11/dist/index.js",
+    "@codemirror/autocomplete": "https://cdn.jsdelivr.net/npm/@codemirror/autocomplete@6.18.6/dist/index.js",
+    "@codemirror/lint": "https://cdn.jsdelivr.net/npm/@codemirror/lint@6.8.5/dist/index.js",
+    "@codemirror/lang-python": "https://cdn.jsdelivr.net/npm/@codemirror/lang-python@6.2.1/dist/index.js",
+    "@codemirror/lang-javascript": "https://cdn.jsdelivr.net/npm/@codemirror/lang-javascript@6.2.2/dist/index.js",
+    "@codemirror/lang-html": "https://cdn.jsdelivr.net/npm/@codemirror/lang-html@6.4.9/dist/index.js",
+    "@codemirror/lang-css": "https://cdn.jsdelivr.net/npm/@codemirror/lang-css@6.3.0/dist/index.js",
+    "@codemirror/lang-json": "https://cdn.jsdelivr.net/npm/@codemirror/lang-json@6.0.1/dist/index.js",
+    "@codemirror/lang-markdown": "https://cdn.jsdelivr.net/npm/@codemirror/lang-markdown@6.3.0/dist/index.js",
+    "@lezer/common": "https://cdn.jsdelivr.net/npm/@lezer/common@1.2.3/dist/index.js",
+    "@lezer/highlight": "https://cdn.jsdelivr.net/npm/@lezer/highlight@1.2.3/dist/index.js",
+    "@lezer/python": "https://cdn.jsdelivr.net/npm/@lezer/python@1.1.18/dist/index.js",
+    "@lezer/javascript": "https://cdn.jsdelivr.net/npm/@lezer/javascript@1.4.13/dist/index.js",
+    "@lezer/html": "https://cdn.jsdelivr.net/npm/@lezer/html@1.3.9/dist/index.js",
+    "@lezer/css": "https://cdn.jsdelivr.net/npm/@lezer/css@1.1.8/dist/index.js",
+    "@lezer/json": "https://cdn.jsdelivr.net/npm/@lezer/json@1.0.0/dist/index.js",
+    "@lezer/markdown": "https://cdn.jsdelivr.net/npm/@lezer/markdown@1.3.1/dist/index.js",
+    "style-mod": "https://cdn.jsdelivr.net/npm/style-mod@4.1.2/src/style-mod.js",
+    "w3c-keyname": "https://cdn.jsdelivr.net/npm/w3c-keyname@2.2.8/index.js",
+    "crelt": "https://cdn.jsdelivr.net/npm/crelt@1.0.6/index.js",
+    "@marijn/find-cluster-break": "https://cdn.jsdelivr.net/npm/@marijn/find-cluster-break@1.0.2/src/index.js"
+  }
+}
+</script>
+<script type="module">
+/* ============================================================
+   Coding Mode - step 2: live CodeMirror 6 editor
+   Tabs, syntax highlighting, dirty tracking, save (FS Access
+   API to disk, else /api/code/save to disk), Ctrl+S / Ctrl+W /
+   Ctrl+N / Ctrl+O / Ctrl+PageUp+PageDown, drag-and-drop open.
+   Every package is pinned to ONE version via the import map so
+   the browser never loads duplicate copies of @codemirror/state
+   (duplicates silently kill syntax highlighting).
+   ============================================================ */
+import { basicSetup } from 'codemirror';
+import { EditorState, Compartment } from '@codemirror/state';
+import { EditorView, keymap } from '@codemirror/view';
+import { syntaxHighlighting, HighlightStyle } from '@codemirror/language';
+import { closeHistory } from '@codemirror/commands';
+import { tags } from '@lezer/highlight';
+import { python } from '@codemirror/lang-python';
+import { javascript } from '@codemirror/lang-javascript';
+import { html } from '@codemirror/lang-html';
+import { css } from '@codemirror/lang-css';
+import { json } from '@codemirror/lang-json';
+import { markdown } from '@codemirror/lang-markdown';
+
+window.CodeDock = (() => {
+  const $id = (i) => document.getElementById(i);
+  const tabsEl = $id('cdtabs'), editorEl = $id('cdeditor'), emptyEl = $id('cdempty');
+  const statusEl = $id('cdstatus'), metaEl = $id('cdmeta'), dockEl = $id('codedock');
+
+  // ---------- state ----------
+  const files = new Map();   // id -> {id,name,path,lang,langName,content,handle,dirty}
+  const tabOrder = [];       // file ids in tab order
+  let activeId = null;
+  let untitledN = 0;
+
+  // ---------- CodeMirror ----------
+  const langCompartment = new Compartment();
+  let view = null;
+  let suppressDirty = false;
+
+  const lydiaTheme = EditorView.theme({
+    '&': { color: '#eef2ff', backgroundColor: 'transparent', height: '100%' },
+    '.cm-content': { caretColor: '#00f0ff', padding: '12px 0 80px', fontFamily: 'var(--mono)' },
+    '.cm-cursor, .cm-dropCursor': { borderLeftColor: '#00f0ff', boxShadow: '0 0 6px #00f0ff' },
+    '&.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground, .cm-selectionBackground, ::selection': { backgroundColor: 'rgba(90,116,208,0.40) !important' },
+    '.cm-gutters': { backgroundColor: 'rgba(10,14,28,0.9)', color: '#3f4768', border: 'none', borderRight: '1px solid rgba(122,162,255,0.10)' },
+    '.cm-activeLine': { backgroundColor: 'rgba(122,162,255,0.05)' },
+    '.cm-activeLineGutter': { backgroundColor: 'rgba(122,162,255,0.07)', color: '#a6b0d6' },
+    '.cm-lineNumbers .cm-gutterElement': { minWidth: '34px', padding: '0 8px 0 12px' },
+    '.cm-foldGutter .cm-gutterElement': { padding: '0 6px' },
+    '.cm-matchingBracket': { backgroundColor: 'rgba(125,227,208,0.15)', outline: '1px solid rgba(125,227,208,0.5)', color: '#7de3d0' },
+    '.cm-searchMatch': { backgroundColor: 'rgba(179,136,255,0.25)', outline: '1px solid #b388ff' },
+    '.cm-tooltip': { backgroundColor: '#0c101f', border: '1px solid rgba(122,162,255,0.34)', color: '#eef2ff', borderRadius: '10px', fontFamily: 'var(--mono)', boxShadow: '0 16px 40px rgba(0,0,0,0.5)' },
+    '.cm-tooltip-autocomplete ul li[aria-selected]': { backgroundColor: 'rgba(90,116,208,0.35)', color: '#fff' },
+    '.cm-scroller': { fontFamily: 'var(--mono)', fontSize: '12.5px', lineHeight: '1.65' }
+  }, { dark: true });
+
+  const lydiaHighlight = HighlightStyle.define([
+    { tag: tags.keyword, color: '#7aa2ff', fontWeight: '600' },
+    { tag: [tags.name, tags.deleted, tags.character, tags.propertyName, tags.macroName], color: '#eef2ff' },
+    { tag: [tags.function(tags.variableName), tags.labelName], color: '#00f0ff' },
+    { tag: [tags.color, tags.constant(tags.name), tags.standard(tags.name)], color: '#7de3d0' },
+    { tag: [tags.definition(tags.name), tags.separator], color: '#eef2ff' },
+    { tag: [tags.typeName, tags.className, tags.number, tags.changed, tags.annotation, tags.modifier, tags.self, tags.namespace], color: '#b388ff' },
+    { tag: [tags.operator, tags.operatorKeyword, tags.escape, tags.regexp, tags.link, tags.special(tags.string)], color: '#00f0ff' },
+    { tag: [tags.meta, tags.comment], color: '#6b7398', fontStyle: 'italic' },
+    { tag: tags.strong, fontWeight: 'bold' },
+    { tag: tags.emphasis, fontStyle: 'italic' },
+    { tag: tags.strikethrough, textDecoration: 'line-through' },
+    { tag: tags.heading, fontWeight: 'bold', color: '#7aa2ff' },
+    { tag: [tags.atom, tags.bool, tags.special(tags.variableName)], color: '#ff6b7a' },
+    { tag: [tags.processingInstruction, tags.string, tags.inserted], color: '#7de3d0' },
+    { tag: tags.invalid, color: '#ff6b7a' }
+  ]);
+
+  const codeKeymap = keymap.of([
+    { key: 'Mod-s', run: () => { saveActive(false); return true; } },
+    { key: 'Mod-Shift-s', run: () => { saveActive(true); return true; } },
+    { key: 'Mod-w', run: () => { closeTab(activeId); return true; } },
+    { key: 'Mod-n', run: () => { newFile(); return true; } },
+    { key: 'Mod-o', run: () => { openPicker(); return true; } },
+    { key: 'Mod-PageDown', run: () => { cycleTab(1); return true; } },
+    { key: 'Mod-PageUp', run: () => { cycleTab(-1); return true; } }
+  ]);
+
+  function makeState(doc, langExt) {
+    return EditorState.create({
+      doc: doc || '',
+      extensions: [
+        basicSetup,
+        lydiaTheme,
+        syntaxHighlighting(lydiaHighlight),
+        langCompartment.of(langExt ? [langExt] : []),
+        codeKeymap,
+        EditorView.updateListener.of((u) => {
+          if (u.docChanged) {
+            if (!suppressDirty) {
+              const f = files.get(activeId);
+              if (f) { f.content = u.state.doc.toString(); f.dirty = true; updateTab(f); updateStatus(); }
+            }
+          }
+          if (u.selectionSet || u.docChanged) updatePos();
+        })
+      ]
+    });
+  }
+
+  view = new EditorView({ parent: editorEl, state: makeState('', null) });
+
+  // ---------- language detection ----------
+  function langFor(name) {
+    const ext = (name.split('.').pop() || '').toLowerCase();
+    switch (ext) {
+      case 'py': return { ext: python(), name: 'python' };
+      case 'gd': return { ext: python(), name: 'gdscript~python' };
+      case 'js': case 'mjs': case 'cjs': case 'ts': case 'jsx': case 'tsx': return { ext: javascript(), name: 'javascript' };
+      case 'json': return { ext: json(), name: 'json' };
+      case 'html': case 'htm': case 'vue': return { ext: html(), name: 'html' };
+      case 'css': case 'scss': case 'less': return { ext: css(), name: 'css' };
+      case 'md': case 'markdown': return { ext: markdown(), name: 'markdown' };
+      default: return { ext: null, name: 'plain text' };
+    }
+  }
+
+  // ---------- tabs ----------
+  const tabEls = new Map();
+
+  function uid() { return 'f' + (++untitledN) + '_' + Math.random().toString(36).slice(2, 8); }
+
+  function addTab({ name, content, handle, path }) {
+    const id = uid();
+    const l = langFor(name || '');
+    const f = { id, name: name || ('untitled-' + (untitledN + 1) + '.py'), content: content || '', handle: handle || null, path: path || null, dirty: false, lang: l.ext, langName: l.name };
+    files.set(id, f);
+    tabOrder.push(id);
+    renderTabs();
+    loadIntoEditor(f);
+    setStatus('OPENED');
+    return f;
+  }
+
+  function renderTabs() {
+    tabsEl.innerHTML = '';
+    tabEls.clear();
+    for (const id of tabOrder) {
+      const f = files.get(id);
+      if (!f) continue;
+      const t = document.createElement('div');
+      t.className = 'cd-tab' + (id === activeId ? ' active' : '') + (f.dirty ? ' dirty' : '');
+      const nm = document.createElement('span'); nm.className = 'tname'; nm.textContent = f.name;
+      const dot = document.createElement('span'); dot.className = 'tdot';
+      const x = document.createElement('button'); x.type = 'button'; x.className = 'cd-tabx'; x.title = 'Close'; x.textContent = '\u00d7';
+      x.onclick = (e) => { e.stopPropagation(); closeTab(id); };
+      t.appendChild(nm); t.appendChild(dot); t.appendChild(x);
+      t.onclick = () => loadIntoEditor(files.get(id));
+      tabsEl.appendChild(t);
+      tabEls.set(id, t);
+    }
+    emptyEl.style.display = tabOrder.length ? 'none' : 'flex';
+  }
+
+  function updateTab(f) {
+    const el = tabEls.get(f.id);
+    if (!el) return;
+    el.className = 'cd-tab' + (f.id === activeId ? ' active' : '') + (f.dirty ? ' dirty' : '');
+  }
+
+  function loadIntoEditor(f) {
+    if (!f) return;
+    activeId = f.id;
+    suppressDirty = true;
+    try { closeHistory(view.state); } catch (e) { /* noop */ }
+    view.dispatch({
+      changes: { from: 0, to: view.state.doc.length, insert: f.content },
+      effects: langCompartment.reconfigure(f.lang ? [f.lang] : [])
+    });
+    view.dispatch({ selection: { anchor: 0 } });
+    suppressDirty = false;
+    renderTabs();
+    updateStatus();
+    updatePos();
+    view.focus();
+  }
+
+  function closeTab(id) {
+    const f = files.get(id);
+    if (!f) return;
+    if (f.dirty && !confirm('Close "' + f.name + '" without saving?')) return;
+    files.delete(id);
+    tabEls.delete(id);
+    const i = tabOrder.indexOf(id);
+    if (i > -1) tabOrder.splice(i, 1);
+    if (activeId === id) {
+      const next = tabOrder.length ? tabOrder[Math.min(i, tabOrder.length - 1)] : null;
+      if (next) loadIntoEditor(files.get(next));
+      else {
+        activeId = null;
+        suppressDirty = true;
+        view.setState(makeState('', null));
+        suppressDirty = false;
+        renderTabs();
+        setStatus('READY');
+      }
+    } else {
+      renderTabs();
+    }
+  }
+
+  function cycleTab(dir) {
+    if (tabOrder.length < 2) return;
+    const i = tabOrder.indexOf(activeId);
+    const next = tabOrder[(i + dir + tabOrder.length) % tabOrder.length];
+    loadIntoEditor(files.get(next));
+  }
+
+  // ---------- open / new ----------
+  function newFile() {
+    untitledN++;
+    addTab({ name: 'untitled-' + untitledN + '.py', content: '' });
+  }
+
+  async function openPicker() {
+    if (!window.showOpenFilePicker) {
+      const inp = document.createElement('input');
+      inp.type = 'file'; inp.multiple = true;
+      inp.onchange = async () => {
+        for (const f of inp.files) {
+          try { addTab({ name: f.name, content: await f.text() }); } catch (e) { /* noop */ }
+        }
+      };
+      inp.click();
+      return;
+    }
+    try {
+      const handles = await window.showOpenFilePicker({ multiple: true });
+      for (const h of handles) {
+        try {
+          const file = await h.getFile();
+          addTab({ name: file.name, content: await file.text(), handle: h });
+        } catch (e) { /* noop */ }
+      }
+    } catch (e) { /* user cancelled */ }
+  }
+
+  // ---------- save ----------
+  async function saveActive(forceAs) {
+    const f = files.get(activeId);
+    if (!f) return;
+    if (forceAs || (!f.handle && !f.path)) return saveAs(f);
+    const content = view.state.doc.toString();
+    try {
+      if (f.handle) {
+        const w = await f.handle.createWritable();
+        await w.write(content);
+        await w.close();
+      } else if (f.path) {
+        const r = await fetch('/api/code/save', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ path: f.path, content })
+        });
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok || !j.ok) throw new Error(j.error || ('HTTP ' + r.status));
+      }
+      f.content = content; f.dirty = false;
+      updateTab(f); setStatus('SAVED');
+      if (f.path) metaEl.textContent = f.path;
+    } catch (err) {
+      setStatus('SAVE FAILED');
+      showToastLocal('Could not save ' + f.name + ': ' + (err.message || err));
+    }
+  }
+
+  async function saveAs(f) {
+    if (!window.showSaveFilePicker) {
+      // No FS Access API - save into imports/ via the backend.
+      const name = (f.name || 'untitled.py').replace(/[^\w.\-]/g, '_');
+      try {
+        const r = await fetch('/api/code/save', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ path: 'imports/' + name, content: view.state.doc.toString() })
+        });
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok || !j.ok) throw new Error(j.error || ('HTTP ' + r.status));
+        f.path = j.path; f.dirty = false; f.content = view.state.doc.toString();
+        updateTab(f); setStatus('SAVED TO IMPORTS');
+        metaEl.textContent = f.path;
+      } catch (err) {
+        setStatus('SAVE FAILED');
+        showToastLocal(String(err.message || err));
+      }
+      return;
+    }
+    try {
+      const handle = await window.showSaveFilePicker({
+        suggestedName: f.name || 'untitled.py',
+        types: [{ description: 'Code', accept: { 'text/plain': ['.py', '.gd', '.js', '.ts', '.json', '.html', '.css', '.md', '.sql', '.txt', '.lua'] } }]
+      });
+      const w = await handle.createWritable();
+      await w.write(view.state.doc.toString());
+      await w.close();
+      f.handle = handle; f.name = handle.name; f.path = null;
+      f.dirty = false; f.content = view.state.doc.toString();
+      renderTabs(); setStatus('SAVED');
+    } catch (e) { /* cancelled */ }
+  }
+
+  // ---------- status ----------
+  function setStatus(t) { statusEl.textContent = t; }
+
+  function updatePos() {
+    const f = files.get(activeId);
+    if (!f) { metaEl.textContent = 'no file'; return; }
+    const pos = view.state.selection.main.head;
+    const line = view.state.doc.lineAt(pos);
+    metaEl.textContent = f.langName + ' \u00b7 ' + line.number + ':' + (pos - line.from + 1) + (f.dirty ? ' \u00b7 unsaved' : '');
+  }
+
+  function updateStatus() {
+    const f = files.get(activeId);
+    if (!f) { metaEl.textContent = 'no file'; return; }
+    metaEl.textContent = f.langName + (f.dirty ? ' \u00b7 unsaved' : '');
+  }
+
+  // ---------- dock integration + drag & drop ----------
+  function onDockToggle(open) {
+    if (!open) return;
+    if (view) view.requestMeasure();
+    if (activeId) view.focus();
+  }
+
+  dockEl.addEventListener('dragover', (e) => { e.preventDefault(); e.stopPropagation(); });
+  dockEl.addEventListener('drop', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const fs = [...((e.dataTransfer && e.dataTransfer.files) || [])];
+    fs.forEach((f) => f.text().then((t) => addTab({ name: f.name, content: t })).catch(() => {}));
+  });
+
+  $id('cdnew').onclick = newFile;
+  $id('cdopen').onclick = openPicker;
+  $id('cdsave').onclick = () => saveActive(false);
+  $id('cdfolder').onclick = () => showToastLocal('Folder tree lands in step 3 - coming up.');
+
+  function showToastLocal(msg) {
+    if (typeof showToast === 'function') showToast(msg, 'CODE');
+  }
+
+  return { onDockToggle };
+})();
 </script>
 </body>
 </html>

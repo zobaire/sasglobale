@@ -298,6 +298,61 @@ async def api_import(files: list[UploadFile] = File(...)):
     return JSONResponse({"saved": [s["path"] for s in saved], "errors": errors})
 
 
+# --- Coding Mode: read/save files for the editor (step 2) ---
+
+_CODE_ROOTS = [
+    Path(__file__).parent.parent.resolve(),                        # Lydia home (ui/, imports/, brain/…)
+    Path(r"C:\Users\book\Desktop\fate's-pair").resolve(),          # main game project
+]
+
+
+def _resolve_code_path(raw: str) -> Path | None:
+    """Resolve a path for the code editor — must live under an allowlisted root."""
+    if not raw:
+        return None
+    p = Path(raw).expanduser()
+    if not p.is_absolute():
+        p = _IMPORT_DIR / p
+    try:
+        rp = p.resolve()
+    except Exception:
+        return None
+    for root in _CODE_ROOTS:
+        try:
+            rp.relative_to(root)
+            return rp
+        except ValueError:
+            continue
+    return None
+
+
+@app.post("/api/code/read")
+async def api_code_read(request: Request):
+    body = await request.json()
+    path = _resolve_code_path(body.get("path", ""))
+    if path is None:
+        return JSONResponse({"error": "path not allowed"}, status_code=403)
+    try:
+        content = path.read_text(encoding="utf-8")
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=404)
+    return JSONResponse({"ok": True, "path": str(path), "content": content})
+
+
+@app.post("/api/code/save")
+async def api_code_save(request: Request):
+    body = await request.json()
+    path = _resolve_code_path(body.get("path", ""))
+    if path is None:
+        return JSONResponse({"error": "path not allowed"}, status_code=403)
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(body.get("content", ""), encoding="utf-8")
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+    return JSONResponse({"ok": True, "path": str(path)})
+
+
 def _file_preview(dest: Path, data: bytes, max_chars: int = 1200) -> str:
     """Best-effort text preview for an imported file (empty for binaries)."""
     text_exts = {
