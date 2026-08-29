@@ -297,4 +297,24 @@ def chat_with_tools(
                 "tool_call_id": tc.get("id", ""),
             })
 
-    return "Done."
+    # Hit the tool-call cap. Don't reply with a hollow "Done." that loses
+    # the whole task — ask the model to synthesize one final summary of
+    # what it did and the outcome, so the result survives into context.
+    messages = messages + [{"role": "user", "content": (
+        "You've used your full tool-call budget. Without calling any more "
+        "tools, give the user a concise final summary of what you did and "
+        "the concrete result. Do not say 'end' or 'done'."
+    )}]
+    if on_delta or on_reasoning:
+        content, _ = _abortable_stream_create(
+            client, model=model, messages=messages, tools=[],
+            temperature=temperature, abort_check=abort_check,
+            on_delta=on_delta, on_reasoning=on_reasoning,
+        )
+    else:
+        resp = _abortable_create(
+            client, model=model, messages=messages, tools=[],
+            temperature=temperature, abort_check=abort_check,
+        )
+        content = resp.choices[0].message.content or "Done."
+    return _strip_think(content or "Done.")

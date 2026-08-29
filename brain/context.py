@@ -15,6 +15,7 @@ class ContextManager:
         max_messages: int | None = None,
         summarize_after: int | None = None,
         initial_summaries: list[str] | None = None,
+        save_summary_cb: Callable[[str], None] | None = None,
     ):
         cfg = load_config().get("context", {})
         self.max_messages = max_messages if max_messages is not None else cfg.get("max_messages", 24)
@@ -27,6 +28,9 @@ class ContextManager:
             )
         self._window: deque[dict] = deque(maxlen=self.max_messages)
         self._summary: str | None = None
+        # Optional callback to persist a generated summary (e.g. to SQLite)
+        # so deep-task context survives restarts.
+        self._save_summary_cb = save_summary_cb
         # Summaries persisted by a previous session (SQLite), replayed into
         # the prompt so conversation context survives restarts.
         self._prior_summaries: list[str] = list(initial_summaries or [])
@@ -53,6 +57,11 @@ class ContextManager:
                 self._summary = None
                 return
             self._summary = f"[Earlier context: {summary}]"
+            if self._save_summary_cb:
+                try:
+                    self._save_summary_cb(summary)
+                except Exception:
+                    pass
         except Exception:
             # Summarization failed (timeout, provider down…). Oldest messages
             # are already dropped; continue without a summary.

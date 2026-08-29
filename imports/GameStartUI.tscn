@@ -1,0 +1,16 @@
+[gd_scene format=3 uid="uid://tultlynb41s2"]
+
+[node name="GameStartUi" type="Node" unique_id=619394994]
+
+[node name="starui" type="Control" parent="." unique_id=791270995]
+layout_mode = 3
+anchors_preset = 0
+offset_right = 40.0
+offset_bottom = 40.0
+
+[node name="WebView" type="WebView" parent="starui" unique_id=1495253451]
+layout_mode = 1
+anchors_preset = -1
+anchor_right = 28.800001
+anchor_bottom = 16.175001
+offset_bottom = -6.1035156e-05

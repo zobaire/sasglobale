@@ -31,7 +31,10 @@ _muted = threading.Event()
 _memory = Memory()
 # Replay the last few persisted conversation summaries on boot so context
 # isn't wiped every restart.
-_context = ContextManager(initial_summaries=_memory.get_recent_summaries(5))
+_context = ContextManager(
+    initial_summaries=_memory.get_recent_summaries(5),
+    save_summary_cb=lambda s: _memory.save_conversation_summary(s),
+)
 
 
 class Aborted(Exception):

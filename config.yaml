@@ -21,7 +21,7 @@ lydia:
 brain:
   active_provider: deepseek
   temperature: 0.6
-  max_tool_loops: 15
+  max_tool_loops: 45
 providers:
   deepseek:
     type: openai
@@ -39,8 +39,8 @@ providers:
     model: llama-3.3-70b-versatile
     base_url: https://api.groq.com/openai/v1
 context:
-  max_messages: 24
-  summarize_after: 16
+  max_messages: 40
+  summarize_after: 28
 memory:
   db_path: memory_data/memory.db
   chroma_path: memory_data/chroma

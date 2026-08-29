@@ -238,9 +238,13 @@ async def api_token(request: Request):
 
 @app.post("/api/import")
 async def api_import(files: list[UploadFile] = File(...)):
-    """Accept file uploads from the UI, save them into /imports, and log a memory note."""
+    """Accept file uploads from the UI, save them into /imports, and log a
+    memory note with the FULL path + a preview so Lydia can actually find and
+    read what was dropped in (not just a bare filename)."""
+    from brain.events import broadcast
+
     _IMPORT_DIR.mkdir(parents=True, exist_ok=True)
-    saved: list[str] = []
+    saved: list[dict] = []
     errors: list[str] = []
     for f in files:
         try:
@@ -249,20 +253,67 @@ async def api_import(files: list[UploadFile] = File(...)):
             dest = _IMPORT_DIR / name
             data = await f.read()
             dest.write_bytes(data)
-            saved.append(name)
+            saved.append({
+                "name": name,
+                "path": str(dest.resolve()),
+                "size": len(data),
+                "preview": _file_preview(dest, data),
+            })
         except Exception as e:
             errors.append(f"{f.filename}: {e}")
-    # Log an import note so it shows up in memory/graph
+
     if saved:
         try:
+            # notes.md is loaded into Lydia's system prompt, so record the
+            # absolute address of every imported file there.
             note = _MEMORY_DIR / "notes.md"
             existing = note.read_text(encoding="utf-8") if note.exists() else ""
-            line = "Imported files: " + ", ".join(saved)
-            if line not in existing:
-                note.write_text((existing + "\n- " + line).strip() + "\n", encoding="utf-8")
+            lines = [existing.rstrip()] if existing.strip() else []
+            for s in saved:
+                line = f"- Imported file: {s['path']} (original name: {s['name']}, {s['size']} bytes)"
+                if line not in existing:
+                    lines.append(line)
+            note.write_text("\n".join(lines).strip() + "\n", encoding="utf-8")
         except Exception:
             pass
-    return JSONResponse({"saved": saved, "errors": errors})
+
+        try:
+            # Structured record Lydia can read directly with read_file too.
+            record_path = _MEMORY_DIR / "imported_files.json"
+            records = []
+            if record_path.exists():
+                try:
+                    records = json.loads(record_path.read_text(encoding="utf-8"))
+                except Exception:
+                    records = []
+            records.extend(saved)
+            record_path.write_text(json.dumps(records, indent=2, ensure_ascii=False), encoding="utf-8")
+        except Exception:
+            pass
+
+        # Surface in the UI memory graph so it's obvious what just landed.
+        paths = ", ".join(s["path"] for s in saved)
+        broadcast({"type": "memory", "text": f"Imported file(s): {paths}"})
+
+    return JSONResponse({"saved": [s["path"] for s in saved], "errors": errors})
+
+
+def _file_preview(dest: Path, data: bytes, max_chars: int = 1200) -> str:
+    """Best-effort text preview for an imported file (empty for binaries)."""
+    text_exts = {
+        ".txt", ".md", ".py", ".js", ".ts", ".tsx", ".jsx", ".json", ".yaml",
+        ".yml", ".toml", ".ini", ".cfg", ".csv", ".log", ".html", ".htm",
+        ".css", ".scss", ".xml", ".gd", ".sh", ".ps1", ".bat", ".env",
+    }
+    if dest.suffix.lower() not in text_exts:
+        return ""
+    try:
+        text = data.decode("utf-8", errors="ignore")
+    except Exception:
+        return ""
+    if not text.strip():
+        return ""
+    return text[:max_chars]
 
 
 # --- WebSocket ---

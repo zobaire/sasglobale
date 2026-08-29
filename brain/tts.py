@@ -19,6 +19,7 @@ from brain.config import load_config
 
 _SPEAKING = threading.Event()
 _INTERRUPT = threading.Event()
+_MUTED = threading.Event()
 
 _EMOJI_RE = re.compile(
     "[\U0001F600-\U0001F64F"
@@ -46,6 +47,20 @@ def stop_speaking() -> None:
     _INTERRUPT.set()
     sd.stop()
     _SPEAKING.clear()
+
+
+def is_muted() -> bool:
+    return _MUTED.is_set()
+
+
+def set_muted(muted: bool) -> None:
+    """Enable/disable ALL voice output. Turning mute ON cuts any audio instantly
+    and the flag stays set, so no speech path can start while muted."""
+    if muted:
+        _MUTED.set()
+        stop_speaking()
+    else:
+        _MUTED.clear()
 
 
 def _pcm_from_mp3(path: str) -> np.ndarray | None:
@@ -120,8 +135,12 @@ def _pick_voice(cfg: dict, lang: str | None = None) -> str:
 
 
 def _speak_file(path: str) -> None:
+    if _MUTED.is_set():
+        return
     audio = _pcm_from_mp3(path)
     if audio is None:
+        return
+    if _MUTED.is_set():
         return
     _SPEAKING.set()
     sd.play(audio, samplerate=24000)
@@ -131,7 +150,11 @@ def _speak_file(path: str) -> None:
 
 def speak(text: str) -> None:
     """Speak text aloud. Interruptible via stop_speaking()."""
+    if _MUTED.is_set():
+        return
     text = _clean_for_speech(text)
+    if not text:
+        return
     _INTERRUPT.clear()
     cfg = load_config().get("tts", {})
     provider = cfg.get("provider", "edge")
@@ -152,7 +175,9 @@ def speak(text: str) -> None:
             return
         _speak_file(out_path)
     finally:
-        _INTERRUPT.clear()
+        # NOTE: do NOT clear _INTERRUPT here. If we were interrupted mid-speech
+        # the flag must stay SET so the caller (speak_streamed) knows to stop.
+        # The next speak() call clears it at entry.
         try:
             Path(out_path).unlink(missing_ok=True)
         except Exception:
@@ -161,6 +186,8 @@ def speak(text: str) -> None:
 
 def speak_streamed(text: str) -> None:
     """Speak text sentence by sentence for lower latency."""
+    if _MUTED.is_set():
+        return
     sentences = _split_sentences(text)
     if not sentences:
         return
@@ -172,10 +199,12 @@ def speak_streamed(text: str) -> None:
     _SPEAKING.set()
     try:
         for sentence in sentences:
-            if _INTERRUPT.is_set():
+            if _MUTED.is_set() or _INTERRUPT.is_set():
                 break
             speak(sentence)
-            if _INTERRUPT.is_set():
+            # speak() no longer clears the interrupt flag, so a mute/stop
+            # fired mid-sentence reliably halts the rest of the stream.
+            if _MUTED.is_set() or _INTERRUPT.is_set():
                 break
     finally:
         _SPEAKING.clear()

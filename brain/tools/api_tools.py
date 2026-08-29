@@ -195,6 +195,22 @@ def discord_check() -> str:
 
 # --- Tebex ---
 
+def _clean_console_text(s: str) -> str:
+    """Strip chars that crash Windows cp1252 console printing (emoji etc).
+
+    Tebex package names often contain emoji (e.g. 🚔, 🚳). Python on Windows
+    prints to cp1252 by default, so any non-BMP char raises UnicodeEncodeError
+    and takes the whole backend down. Keep BMP + common currency symbols,
+    drop the rest (the LLM doesn't need emoji from API data anyway).
+    """
+    out = []
+    for ch in s:
+        code = ord(ch)
+        if code < 0x10000 and ch != "\U000fe0ff":
+            out.append(ch)
+    return "".join(out)
+
+
 def tebex_check() -> str:
     """Check Tebex store for recent sales."""
     env = load_dotenv()
