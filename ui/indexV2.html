@@ -309,8 +309,9 @@
   .cd-editor{flex:1;position:relative;min-height:0;}
   .cd-empty{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:var(--dimmer);font-family:var(--mono);font-size:11px;text-align:center;padding:20px;line-height:1.6;}
   .cd-empty .cd-big{font-size:24px;opacity:.55;color:var(--accent);text-shadow:0 0 16px rgba(122,162,255,0.4);}
-  .cd-statusbar{position:relative;display:flex;align-items:center;justify-content:space-between;padding:7px 14px;border-top:1px solid var(--line);font-family:var(--mono);font-size:9px;letter-spacing:1.5px;color:var(--dimmer);flex:none;background:rgba(255,255,255,0.02);}
-  #cdstatus{color:var(--cool);text-shadow:0 0 8px rgba(125,227,208,0.4);}
+  .cd-statusbar{position:relative;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:7px 14px;border-top:1px solid var(--line);font-family:var(--mono);font-size:9px;letter-spacing:1.5px;color:var(--dimmer);flex:none;background:rgba(255,255,255,0.02);}
+  #cdstatus{color:var(--cool);text-shadow:0 0 8px rgba(125,227,208,0.4);flex:none;}
+  #cdmeta{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:70%;}
 
   /* ---------- Coding Mode: tabs + CodeMirror 6 (step 2) ---------- */
   .cd-tab{display:flex;align-items:center;gap:6px;padding:5px 10px;border:1px solid transparent;border-bottom:none;border-radius:10px 10px 0 0;color:var(--dim);font-family:var(--mono);font-size:10.5px;cursor:pointer;white-space:nowrap;max-width:190px;flex:none;transition:all .15s;background:transparent;user-select:none;}
@@ -332,6 +333,20 @@
   /* while the dock is open, gently fade the top-right Thoughts panel so nothing stacks awkwardly */
   #thoughts{transition:opacity .2s ease,transform .2s ease;}
   body.code-open #thoughts{opacity:0;pointer-events:none;transform:scale(.98);}
+
+  /* ---------- Coding Mode: file tree rows ---------- */
+  #cdtree{width:236px;font-family:var(--mono);}
+  .cdt-row{display:flex;align-items:center;gap:6px;padding:3px 7px;border-radius:7px;cursor:pointer;
+    font-size:11px;color:var(--dim);white-space:nowrap;user-select:none;transition:background .12s,color .12s;flex:none;}
+  .cdt-row:hover{background:rgba(122,162,255,0.10);color:var(--paper);}
+  .cdt-row.cdt-dir{color:var(--cool);}
+  .cdt-row.cdt-dir:hover{background:rgba(125,227,208,0.10);color:var(--paper);}
+  .cdt-row.cdt-up{color:var(--dimmer);font-style:italic;}
+  .cdt-row.cdt-up:hover{color:var(--paper);background:rgba(255,255,255,0.05);}
+  .cdt-ic{flex:none;width:15px;text-align:center;font-size:10px;opacity:.85;}
+  .cdt-nm{overflow:hidden;text-overflow:ellipsis;}
+  .cdt-children{margin-left:11px;border-left:1px solid var(--line);padding-left:3px;display:flex;flex-direction:column;gap:1px;}
+  #cdtree .cd-empty{color:var(--dimmer);font-family:var(--mono);font-size:10.5px;}
 </style>
 </head>
 <body>
@@ -1003,15 +1018,35 @@ let curMuted=false;
 $('mute').onclick=()=>{if(ws&&ws.readyState===1)ws.send(JSON.stringify({type:'set_mute',muted:!curMuted}));};
 $('listenmute').onclick=()=>{if(ws&&ws.readyState===1)ws.send(JSON.stringify({type:'set_listen',listening:!curListening}));};
 
-/* ---------- Coding Mode dock (step 1: toggle) ---------- */
+/* ---------- Coding Mode dock (toggle + lazy CodeMirror + file tree) ---------- */
 let codingOpen=false;
+let codeDockLoaded=false, codeDockLoading=null;
+
+function loadCodeDock(){
+  // CodeMirror + ~15 CDN modules (~1MB) only load the FIRST time the dock
+  // opens — no point paying that on every page load when Coding Mode is
+  // additive and on-demand.
+  if(codeDockLoaded) return Promise.resolve(window.CodeDock);
+  if(codeDockLoading) return codeDockLoading;
+  codeDockLoading=import('/codedock.mjs')
+    .then(()=>{codeDockLoaded=true; return window.CodeDock;})
+    .catch(err=>{codeDockLoading=null; console.warn('codedock load failed:',err); return null;});
+  return codeDockLoading;
+}
+
 function setCoding(open){
+  if(!open && window.CodeDock && window.CodeDock.hasDirty()){
+    if(!confirm('You have unsaved changes in Coding Mode. Close anyway?')) return;
+  }
   codingOpen=open;
   $('codedock').classList.toggle('open',open);
   $('codebtn').classList.toggle('on',open);
   $('codebtn').title=open?'Close Coding Mode (Ctrl+B)':'Open Coding Mode (Ctrl+B)';
   document.body.classList.toggle('code-open',open);
-  if(window.CodeDock) window.CodeDock.onDockToggle(open);
+  if(open){
+    ensureTreeLoaded();
+    loadCodeDock().then(dock=>{ if(dock && codingOpen) dock.onDockToggle(true); });
+  }
 }
 $('codebtn').onclick=()=>setCoding(!codingOpen);
 $('cdclose').onclick=()=>setCoding(false);
@@ -1023,6 +1058,105 @@ document.addEventListener('keydown', e=>{
     setCoding(false);
   }
 });
+
+/* ---------- Coding Mode: file tree (lazy one-level fetch per expand) ---------- */
+let treeRootLoaded=false;
+let pendingOpen=null;   // file clicked before CodeDock finished lazy-loading
+
+async function ensureTreeLoaded(){
+  if(treeRootLoaded) return;
+  treeRootLoaded=true;
+  await fetchTreeInto($('cdtree'), '');
+}
+
+async function fetchTreeInto(host, path){
+  host.innerHTML='<div class="cd-empty">loading…</div>';
+  try{
+    const r=await fetch('/api/code/tree?path='+encodeURIComponent(path));
+    const j=await r.json();
+    if(!r.ok||!j.ok) throw new Error(j.error||('HTTP '+r.status));
+    host.innerHTML='';
+    (j.dirs||[]).forEach(d=>host.appendChild(dirRow(d.path, d.name)));
+    (j.files||[]).forEach(f=>host.appendChild(fileRow(f.path, f.name)));
+    if(!j.dirs.length && !j.files.length){
+      const e=document.createElement('div');
+      e.className='cd-empty';
+      e.textContent='(empty)';
+      host.appendChild(e);
+    }
+  }catch(err){
+    host.innerHTML='<div class="cd-empty">'+escapeHtml(String((err&&err.message)||err))+'</div>';
+  }
+}
+
+function dirRow(path, name){
+  const row=document.createElement('div');
+  row.className='cdt-row cdt-dir';
+  row.title=path;
+  row.innerHTML='<span class="cdt-ic">▸</span><span class="cdt-nm">'+escapeHtml(name)+'</span>';
+  let childHost=null;
+  row.onclick=async ()=>{
+    if(childHost){
+      row.querySelector('.cdt-ic').textContent='▸';
+      childHost.remove();
+      childHost=null;
+      return;
+    }
+    row.querySelector('.cdt-ic').textContent='▾';
+    childHost=document.createElement('div');
+    childHost.className='cdt-children';
+    row.after(childHost);
+    childHost.innerHTML='<div class="cd-empty">loading…</div>';
+    try{
+      const r=await fetch('/api/code/tree?path='+encodeURIComponent(path));
+      const j=await r.json();
+      if(!r.ok||!j.ok) throw new Error(j.error||('HTTP '+r.status));
+      childHost.innerHTML='';
+      (j.dirs||[]).forEach(d=>childHost.appendChild(dirRow(d.path, d.name)));
+      (j.files||[]).forEach(f=>childHost.appendChild(fileRow(f.path, f.name)));
+      if(!j.dirs.length && !j.files.length){
+        const e=document.createElement('div');
+        e.className='cd-empty';
+        e.textContent='(empty)';
+        childHost.appendChild(e);
+      }
+    }catch(err){
+      childHost.innerHTML='<div class="cd-empty">'+escapeHtml(String((err&&err.message)||err))+'</div>';
+    }
+  };
+  return row;
+}
+
+function fileRow(path, name){
+  const row=document.createElement('div');
+  row.className='cdt-row';
+  row.title=path;
+  row.innerHTML='<span class="cdt-ic">⧉</span><span class="cdt-nm">'+escapeHtml(name)+'</span>';
+  row.onclick=()=>openTreeFile(path, name);
+  return row;
+}
+
+async function openTreeFile(path, name){
+  try{
+    const r=await fetch('/api/code/read',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({path})});
+    const j=await r.json();
+    if(!r.ok||!j.ok) throw new Error(j.error||('HTTP '+r.status));
+    const dock=window.CodeDock;
+    if(!dock){
+      // dock still lazy-loading — stash and open once it's ready
+      pendingOpen={name:name||path.split(/[\\/]/).pop(), path:path, content:j.content};
+      loadCodeDock().then(d=>{ if(d && pendingOpen){ d.openFile(pendingOpen); if(codingOpen) d.onDockToggle(true); pendingOpen=null; } });
+      return;
+    }
+    dock.openFile({name:name||path.split(/[\\/]/).pop(), path:path, content:j.content});
+  }catch(err){
+    if(typeof showToast==='function') showToast('Could not open '+(name||path)+': '+((err&&err.message)||err), 'CODE');
+  }
+}
+
+window.TreeAPI={
+  refresh(){ treeRootLoaded=false; ensureTreeLoaded(); }
+};
 
 /* ---------- Memory info ---------- */
 let memFull=[];
@@ -1310,11 +1444,12 @@ connect();
     "@codemirror/lang-markdown": "https://cdn.jsdelivr.net/npm/@codemirror/lang-markdown@6.3.0/dist/index.js",
     "@lezer/common": "https://cdn.jsdelivr.net/npm/@lezer/common@1.2.3/dist/index.js",
     "@lezer/highlight": "https://cdn.jsdelivr.net/npm/@lezer/highlight@1.2.3/dist/index.js",
+    "@lezer/lr": "https://cdn.jsdelivr.net/npm/@lezer/lr@1.4.10/dist/index.js",
     "@lezer/python": "https://cdn.jsdelivr.net/npm/@lezer/python@1.1.18/dist/index.js",
     "@lezer/javascript": "https://cdn.jsdelivr.net/npm/@lezer/javascript@1.4.13/dist/index.js",
     "@lezer/html": "https://cdn.jsdelivr.net/npm/@lezer/html@1.3.9/dist/index.js",
     "@lezer/css": "https://cdn.jsdelivr.net/npm/@lezer/css@1.1.8/dist/index.js",
-    "@lezer/json": "https://cdn.jsdelivr.net/npm/@lezer/json@1.0.0/dist/index.js",
+    "@lezer/json": "https://cdn.jsdelivr.net/npm/@lezer/json@1.0.3/dist/index.js",
     "@lezer/markdown": "https://cdn.jsdelivr.net/npm/@lezer/markdown@1.3.1/dist/index.js",
     "style-mod": "https://cdn.jsdelivr.net/npm/style-mod@4.1.2/src/style-mod.js",
     "w3c-keyname": "https://cdn.jsdelivr.net/npm/w3c-keyname@2.2.8/index.js",
@@ -1323,354 +1458,6 @@ connect();
   }
 }
 </script>
-<script type="module">
-/* ============================================================
-   Coding Mode - step 2: live CodeMirror 6 editor
-   Tabs, syntax highlighting, dirty tracking, save (FS Access
-   API to disk, else /api/code/save to disk), Ctrl+S / Ctrl+W /
-   Ctrl+N / Ctrl+O / Ctrl+PageUp+PageDown, drag-and-drop open.
-   Every package is pinned to ONE version via the import map so
-   the browser never loads duplicate copies of @codemirror/state
-   (duplicates silently kill syntax highlighting).
-   ============================================================ */
-import { basicSetup } from 'codemirror';
-import { EditorState, Compartment } from '@codemirror/state';
-import { EditorView, keymap } from '@codemirror/view';
-import { syntaxHighlighting, HighlightStyle } from '@codemirror/language';
-import { closeHistory } from '@codemirror/commands';
-import { tags } from '@lezer/highlight';
-import { python } from '@codemirror/lang-python';
-import { javascript } from '@codemirror/lang-javascript';
-import { html } from '@codemirror/lang-html';
-import { css } from '@codemirror/lang-css';
-import { json } from '@codemirror/lang-json';
-import { markdown } from '@codemirror/lang-markdown';
 
-window.CodeDock = (() => {
-  const $id = (i) => document.getElementById(i);
-  const tabsEl = $id('cdtabs'), editorEl = $id('cdeditor'), emptyEl = $id('cdempty');
-  const statusEl = $id('cdstatus'), metaEl = $id('cdmeta'), dockEl = $id('codedock');
-
-  // ---------- state ----------
-  const files = new Map();   // id -> {id,name,path,lang,langName,content,handle,dirty}
-  const tabOrder = [];       // file ids in tab order
-  let activeId = null;
-  let untitledN = 0;
-
-  // ---------- CodeMirror ----------
-  const langCompartment = new Compartment();
-  let view = null;
-  let suppressDirty = false;
-
-  const lydiaTheme = EditorView.theme({
-    '&': { color: '#eef2ff', backgroundColor: 'transparent', height: '100%' },
-    '.cm-content': { caretColor: '#00f0ff', padding: '12px 0 80px', fontFamily: 'var(--mono)' },
-    '.cm-cursor, .cm-dropCursor': { borderLeftColor: '#00f0ff', boxShadow: '0 0 6px #00f0ff' },
-    '&.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground, .cm-selectionBackground, ::selection': { backgroundColor: 'rgba(90,116,208,0.40) !important' },
-    '.cm-gutters': { backgroundColor: 'rgba(10,14,28,0.9)', color: '#3f4768', border: 'none', borderRight: '1px solid rgba(122,162,255,0.10)' },
-    '.cm-activeLine': { backgroundColor: 'rgba(122,162,255,0.05)' },
-    '.cm-activeLineGutter': { backgroundColor: 'rgba(122,162,255,0.07)', color: '#a6b0d6' },
-    '.cm-lineNumbers .cm-gutterElement': { minWidth: '34px', padding: '0 8px 0 12px' },
-    '.cm-foldGutter .cm-gutterElement': { padding: '0 6px' },
-    '.cm-matchingBracket': { backgroundColor: 'rgba(125,227,208,0.15)', outline: '1px solid rgba(125,227,208,0.5)', color: '#7de3d0' },
-    '.cm-searchMatch': { backgroundColor: 'rgba(179,136,255,0.25)', outline: '1px solid #b388ff' },
-    '.cm-tooltip': { backgroundColor: '#0c101f', border: '1px solid rgba(122,162,255,0.34)', color: '#eef2ff', borderRadius: '10px', fontFamily: 'var(--mono)', boxShadow: '0 16px 40px rgba(0,0,0,0.5)' },
-    '.cm-tooltip-autocomplete ul li[aria-selected]': { backgroundColor: 'rgba(90,116,208,0.35)', color: '#fff' },
-    '.cm-scroller': { fontFamily: 'var(--mono)', fontSize: '12.5px', lineHeight: '1.65' }
-  }, { dark: true });
-
-  const lydiaHighlight = HighlightStyle.define([
-    { tag: tags.keyword, color: '#7aa2ff', fontWeight: '600' },
-    { tag: [tags.name, tags.deleted, tags.character, tags.propertyName, tags.macroName], color: '#eef2ff' },
-    { tag: [tags.function(tags.variableName), tags.labelName], color: '#00f0ff' },
-    { tag: [tags.color, tags.constant(tags.name), tags.standard(tags.name)], color: '#7de3d0' },
-    { tag: [tags.definition(tags.name), tags.separator], color: '#eef2ff' },
-    { tag: [tags.typeName, tags.className, tags.number, tags.changed, tags.annotation, tags.modifier, tags.self, tags.namespace], color: '#b388ff' },
-    { tag: [tags.operator, tags.operatorKeyword, tags.escape, tags.regexp, tags.link, tags.special(tags.string)], color: '#00f0ff' },
-    { tag: [tags.meta, tags.comment], color: '#6b7398', fontStyle: 'italic' },
-    { tag: tags.strong, fontWeight: 'bold' },
-    { tag: tags.emphasis, fontStyle: 'italic' },
-    { tag: tags.strikethrough, textDecoration: 'line-through' },
-    { tag: tags.heading, fontWeight: 'bold', color: '#7aa2ff' },
-    { tag: [tags.atom, tags.bool, tags.special(tags.variableName)], color: '#ff6b7a' },
-    { tag: [tags.processingInstruction, tags.string, tags.inserted], color: '#7de3d0' },
-    { tag: tags.invalid, color: '#ff6b7a' }
-  ]);
-
-  const codeKeymap = keymap.of([
-    { key: 'Mod-s', run: () => { saveActive(false); return true; } },
-    { key: 'Mod-Shift-s', run: () => { saveActive(true); return true; } },
-    { key: 'Mod-w', run: () => { closeTab(activeId); return true; } },
-    { key: 'Mod-n', run: () => { newFile(); return true; } },
-    { key: 'Mod-o', run: () => { openPicker(); return true; } },
-    { key: 'Mod-PageDown', run: () => { cycleTab(1); return true; } },
-    { key: 'Mod-PageUp', run: () => { cycleTab(-1); return true; } }
-  ]);
-
-  function makeState(doc, langExt) {
-    return EditorState.create({
-      doc: doc || '',
-      extensions: [
-        basicSetup,
-        lydiaTheme,
-        syntaxHighlighting(lydiaHighlight),
-        langCompartment.of(langExt ? [langExt] : []),
-        codeKeymap,
-        EditorView.updateListener.of((u) => {
-          if (u.docChanged) {
-            if (!suppressDirty) {
-              const f = files.get(activeId);
-              if (f) { f.content = u.state.doc.toString(); f.dirty = true; updateTab(f); updateStatus(); }
-            }
-          }
-          if (u.selectionSet || u.docChanged) updatePos();
-        })
-      ]
-    });
-  }
-
-  view = new EditorView({ parent: editorEl, state: makeState('', null) });
-
-  // ---------- language detection ----------
-  function langFor(name) {
-    const ext = (name.split('.').pop() || '').toLowerCase();
-    switch (ext) {
-      case 'py': return { ext: python(), name: 'python' };
-      case 'gd': return { ext: python(), name: 'gdscript~python' };
-      case 'js': case 'mjs': case 'cjs': case 'ts': case 'jsx': case 'tsx': return { ext: javascript(), name: 'javascript' };
-      case 'json': return { ext: json(), name: 'json' };
-      case 'html': case 'htm': case 'vue': return { ext: html(), name: 'html' };
-      case 'css': case 'scss': case 'less': return { ext: css(), name: 'css' };
-      case 'md': case 'markdown': return { ext: markdown(), name: 'markdown' };
-      default: return { ext: null, name: 'plain text' };
-    }
-  }
-
-  // ---------- tabs ----------
-  const tabEls = new Map();
-
-  function uid() { return 'f' + (++untitledN) + '_' + Math.random().toString(36).slice(2, 8); }
-
-  function addTab({ name, content, handle, path }) {
-    const id = uid();
-    const l = langFor(name || '');
-    const f = { id, name: name || ('untitled-' + (untitledN + 1) + '.py'), content: content || '', handle: handle || null, path: path || null, dirty: false, lang: l.ext, langName: l.name };
-    files.set(id, f);
-    tabOrder.push(id);
-    renderTabs();
-    loadIntoEditor(f);
-    setStatus('OPENED');
-    return f;
-  }
-
-  function renderTabs() {
-    tabsEl.innerHTML = '';
-    tabEls.clear();
-    for (const id of tabOrder) {
-      const f = files.get(id);
-      if (!f) continue;
-      const t = document.createElement('div');
-      t.className = 'cd-tab' + (id === activeId ? ' active' : '') + (f.dirty ? ' dirty' : '');
-      const nm = document.createElement('span'); nm.className = 'tname'; nm.textContent = f.name;
-      const dot = document.createElement('span'); dot.className = 'tdot';
-      const x = document.createElement('button'); x.type = 'button'; x.className = 'cd-tabx'; x.title = 'Close'; x.textContent = '\u00d7';
-      x.onclick = (e) => { e.stopPropagation(); closeTab(id); };
-      t.appendChild(nm); t.appendChild(dot); t.appendChild(x);
-      t.onclick = () => loadIntoEditor(files.get(id));
-      tabsEl.appendChild(t);
-      tabEls.set(id, t);
-    }
-    emptyEl.style.display = tabOrder.length ? 'none' : 'flex';
-  }
-
-  function updateTab(f) {
-    const el = tabEls.get(f.id);
-    if (!el) return;
-    el.className = 'cd-tab' + (f.id === activeId ? ' active' : '') + (f.dirty ? ' dirty' : '');
-  }
-
-  function loadIntoEditor(f) {
-    if (!f) return;
-    activeId = f.id;
-    suppressDirty = true;
-    try { closeHistory(view.state); } catch (e) { /* noop */ }
-    view.dispatch({
-      changes: { from: 0, to: view.state.doc.length, insert: f.content },
-      effects: langCompartment.reconfigure(f.lang ? [f.lang] : [])
-    });
-    view.dispatch({ selection: { anchor: 0 } });
-    suppressDirty = false;
-    renderTabs();
-    updateStatus();
-    updatePos();
-    view.focus();
-  }
-
-  function closeTab(id) {
-    const f = files.get(id);
-    if (!f) return;
-    if (f.dirty && !confirm('Close "' + f.name + '" without saving?')) return;
-    files.delete(id);
-    tabEls.delete(id);
-    const i = tabOrder.indexOf(id);
-    if (i > -1) tabOrder.splice(i, 1);
-    if (activeId === id) {
-      const next = tabOrder.length ? tabOrder[Math.min(i, tabOrder.length - 1)] : null;
-      if (next) loadIntoEditor(files.get(next));
-      else {
-        activeId = null;
-        suppressDirty = true;
-        view.setState(makeState('', null));
-        suppressDirty = false;
-        renderTabs();
-        setStatus('READY');
-      }
-    } else {
-      renderTabs();
-    }
-  }
-
-  function cycleTab(dir) {
-    if (tabOrder.length < 2) return;
-    const i = tabOrder.indexOf(activeId);
-    const next = tabOrder[(i + dir + tabOrder.length) % tabOrder.length];
-    loadIntoEditor(files.get(next));
-  }
-
-  // ---------- open / new ----------
-  function newFile() {
-    untitledN++;
-    addTab({ name: 'untitled-' + untitledN + '.py', content: '' });
-  }
-
-  async function openPicker() {
-    if (!window.showOpenFilePicker) {
-      const inp = document.createElement('input');
-      inp.type = 'file'; inp.multiple = true;
-      inp.onchange = async () => {
-        for (const f of inp.files) {
-          try { addTab({ name: f.name, content: await f.text() }); } catch (e) { /* noop */ }
-        }
-      };
-      inp.click();
-      return;
-    }
-    try {
-      const handles = await window.showOpenFilePicker({ multiple: true });
-      for (const h of handles) {
-        try {
-          const file = await h.getFile();
-          addTab({ name: file.name, content: await file.text(), handle: h });
-        } catch (e) { /* noop */ }
-      }
-    } catch (e) { /* user cancelled */ }
-  }
-
-  // ---------- save ----------
-  async function saveActive(forceAs) {
-    const f = files.get(activeId);
-    if (!f) return;
-    if (forceAs || (!f.handle && !f.path)) return saveAs(f);
-    const content = view.state.doc.toString();
-    try {
-      if (f.handle) {
-        const w = await f.handle.createWritable();
-        await w.write(content);
-        await w.close();
-      } else if (f.path) {
-        const r = await fetch('/api/code/save', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ path: f.path, content })
-        });
-        const j = await r.json().catch(() => ({}));
-        if (!r.ok || !j.ok) throw new Error(j.error || ('HTTP ' + r.status));
-      }
-      f.content = content; f.dirty = false;
-      updateTab(f); setStatus('SAVED');
-      if (f.path) metaEl.textContent = f.path;
-    } catch (err) {
-      setStatus('SAVE FAILED');
-      showToastLocal('Could not save ' + f.name + ': ' + (err.message || err));
-    }
-  }
-
-  async function saveAs(f) {
-    if (!window.showSaveFilePicker) {
-      // No FS Access API - save into imports/ via the backend.
-      const name = (f.name || 'untitled.py').replace(/[^\w.\-]/g, '_');
-      try {
-        const r = await fetch('/api/code/save', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ path: 'imports/' + name, content: view.state.doc.toString() })
-        });
-        const j = await r.json().catch(() => ({}));
-        if (!r.ok || !j.ok) throw new Error(j.error || ('HTTP ' + r.status));
-        f.path = j.path; f.dirty = false; f.content = view.state.doc.toString();
-        updateTab(f); setStatus('SAVED TO IMPORTS');
-        metaEl.textContent = f.path;
-      } catch (err) {
-        setStatus('SAVE FAILED');
-        showToastLocal(String(err.message || err));
-      }
-      return;
-    }
-    try {
-      const handle = await window.showSaveFilePicker({
-        suggestedName: f.name || 'untitled.py',
-        types: [{ description: 'Code', accept: { 'text/plain': ['.py', '.gd', '.js', '.ts', '.json', '.html', '.css', '.md', '.sql', '.txt', '.lua'] } }]
-      });
-      const w = await handle.createWritable();
-      await w.write(view.state.doc.toString());
-      await w.close();
-      f.handle = handle; f.name = handle.name; f.path = null;
-      f.dirty = false; f.content = view.state.doc.toString();
-      renderTabs(); setStatus('SAVED');
-    } catch (e) { /* cancelled */ }
-  }
-
-  // ---------- status ----------
-  function setStatus(t) { statusEl.textContent = t; }
-
-  function updatePos() {
-    const f = files.get(activeId);
-    if (!f) { metaEl.textContent = 'no file'; return; }
-    const pos = view.state.selection.main.head;
-    const line = view.state.doc.lineAt(pos);
-    metaEl.textContent = f.langName + ' \u00b7 ' + line.number + ':' + (pos - line.from + 1) + (f.dirty ? ' \u00b7 unsaved' : '');
-  }
-
-  function updateStatus() {
-    const f = files.get(activeId);
-    if (!f) { metaEl.textContent = 'no file'; return; }
-    metaEl.textContent = f.langName + (f.dirty ? ' \u00b7 unsaved' : '');
-  }
-
-  // ---------- dock integration + drag & drop ----------
-  function onDockToggle(open) {
-    if (!open) return;
-    if (view) view.requestMeasure();
-    if (activeId) view.focus();
-  }
-
-  dockEl.addEventListener('dragover', (e) => { e.preventDefault(); e.stopPropagation(); });
-  dockEl.addEventListener('drop', (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const fs = [...((e.dataTransfer && e.dataTransfer.files) || [])];
-    fs.forEach((f) => f.text().then((t) => addTab({ name: f.name, content: t })).catch(() => {}));
-  });
-
-  $id('cdnew').onclick = newFile;
-  $id('cdopen').onclick = openPicker;
-  $id('cdsave').onclick = () => saveActive(false);
-  $id('cdfolder').onclick = () => showToastLocal('Folder tree lands in step 3 - coming up.');
-
-  function showToastLocal(msg) {
-    if (typeof showToast === 'function') showToast(msg, 'CODE');
-  }
-
-  return { onDockToggle };
-})();
-</script>
 </body>
 </html>

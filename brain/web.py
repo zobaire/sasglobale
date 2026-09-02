@@ -10,7 +10,7 @@ from pathlib import Path
 import requests
 import uvicorn
 from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect, UploadFile, File
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from brain.config import load_config, get_providers, set_active_provider, load_dotenv
@@ -318,12 +318,20 @@ async def api_import(files: list[UploadFile] = File(...)):
     return JSONResponse({"saved": [s["path"] for s in saved], "errors": errors})
 
 
-# --- Coding Mode: read/save files for the editor (step 2) ---
+# --- Coding Mode: read/save/tree for the editor ---
 
 _CODE_ROOTS = [
     Path(__file__).parent.parent.resolve(),                        # Lydia home (ui/, imports/, brain/…)
     Path(r"C:\Users\book\Desktop\fate's-pair").resolve(),          # main game project
 ]
+
+# Directories never shown in the file tree (gitignore-style). Server-side
+# truth — the UI also filters, but this is the enforcement point.
+_TREE_EXCLUDE_DIRS = {
+    ".git", ".hg", ".svn", "node_modules", "__pycache__", ".venv",
+    "venv", ".idea", ".vscode", ".pytest_cache", ".mypy_cache",
+    "memory_data", ".claude", ".env",
+}
 
 
 def _resolve_code_path(raw: str) -> Path | None:
@@ -344,6 +352,65 @@ def _resolve_code_path(raw: str) -> Path | None:
         except ValueError:
             continue
     return None
+
+
+@app.get("/api/code/tree")
+async def api_code_tree(path: str = ""):
+    """List ONE directory level under an allowlisted root.
+
+    The UI calls this lazily: no path = the allowlisted roots themselves,
+    then one request per folder the user expands. Exclusions are enforced
+    here (server side), not just in the UI.
+    """
+    target = None
+    if path:
+        p = _resolve_code_path(path)
+        if p is None or not p.is_dir():
+            return JSONResponse({"error": "path not allowed or not a directory"}, status_code=403)
+        target = p
+
+    dirs: list[dict] = []
+    files: list[dict] = []
+    if target is None:
+        # Top level: list the allowlisted roots as folders.
+        for r in _CODE_ROOTS:
+            if r.exists() and r.is_dir():
+                dirs.append({"name": r.name, "path": str(r.resolve())})
+    else:
+        try:
+            children = sorted(target.iterdir(), key=lambda c: (not c.is_dir(), c.name.lower()))
+        except OSError as e:
+            return JSONResponse({"error": str(e)}, status_code=500)
+        for child in children:
+            if child.name in _TREE_EXCLUDE_DIRS or child.name.startswith("."):
+                continue
+            try:
+                if child.is_dir():
+                    dirs.append({"name": child.name, "path": str(child.resolve())})
+                elif child.is_file():
+                    files.append({
+                        "name": child.name,
+                        "path": str(child.resolve()),
+                        "size": child.stat().st_size,
+                    })
+            except OSError:
+                continue
+    return JSONResponse({
+        "ok": True,
+        "path": str(target.resolve()) if target else "",
+        "dirs": dirs,
+        "files": files,
+    })
+
+
+@app.get("/codedock.mjs")
+async def codedock_js():
+    """The lazy-loaded Coding Mode module (CodeMirror + tab state). Served
+    from disk so edits go live without a backend restart, like indexV2.html."""
+    return Response(
+        (_UI_DIR / "codedock.mjs").read_text(encoding="utf-8"),
+        media_type="text/javascript",
+    )
 
 
 @app.post("/api/code/read")

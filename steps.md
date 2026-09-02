@@ -62,6 +62,17 @@ restart to load (frontend halves A2-A5 are live per page refresh).
 
 ## B. Coding Mode — finish it (~half a day)
 
+Status: DONE 2026-09-02 (live in `ui/indexV2.html` + `ui/codedock.mjs` +
+`brain/web.py`, verified end-to-end by the Playwright headless test in
+`_e2e_test.py`). The bug that kept the whole dock dead: `codedock.mjs`
+imported `closeHistory` from `@codemirror/commands`, which does NOT export
+it in ANY 6.x CDN build — a missing named export is a hard SyntaxError at
+ES-module link time, so `window.CodeDock` never initialized and the lazy
+`import('/codedock.mjs')` promise rejected with a console warning only.
+Fix: removed the import + its guarded call (`ui/codedock.mjs`), plus two
+import-map fixes from earlier in the session: `@lezer/json` 1.0.0 -> 1.0.3
+(404) and added the missing `@lezer/lr@1.4.10` dependency.
+
 Backend endpoints already exist in `brain/web.py` but the UI never calls
 them; the file tree is a static "step 3 coming" stub.
 
@@ -169,7 +180,10 @@ that minimized LYDIA_BACKEND window.
 ## Definition of done for this pass
 - [x] A1-A5 done -> orb never sticks, graph keeps bubbles, thoughts readable
       (A1 backend half pending a Lydia restart)
-- [ ] B1-B3 done -> open a folder, browse, edit, save to real disk, no
-      full-page reloads needed
+- [x] B1-B3 done -> open a folder, browse, edit, save to real disk, no
+      full-page reloads needed (verified 2026-09-02: tree expands
+      `Lydia`/`fate's-pair`, file opens in a CodeMirror tab, Ctrl+S writes
+      back to real disk via POST /api/code/save, Ctrl+B closes clean,
+      zero console/page errors)
 - [ ] C1 done -> code answers render with highlight + copy
 - [ ] D: fresh laptop boots Lydia to "ready at http://localhost:8765"
