@@ -1,6 +1,17 @@
-"""Speech-to-text using cloud APIs (Groq Whisper)."""
+"""Speech-to-text using cloud APIs (Gemini default, Groq fallback).
+
+Gemini is the primary provider because Groq's API is region-blocked from
+some networks (it returns 403 "Access denied" / kills the TLS handshake),
+which made every transcription fail. The chain tries providers in order
+with retries for transient network errors, so if one provider is down the
+voice pipeline keeps working.
+"""
 from __future__ import annotations
+import base64
+import io
+import os
 import tempfile
+import time
 import wave
 from pathlib import Path
 
@@ -11,7 +22,12 @@ import sounddevice as sd
 from brain.config import load_config, load_dotenv
 
 
+_GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta/openai/"
+
 _ABORT_EVENT = None
+
+_LOCAL_MODEL = None
+_LOCAL_MODEL_NAME = None
 
 
 def set_abort_event(event) -> None:
@@ -28,6 +44,18 @@ def _save_wav(audio: np.ndarray, path: str, sample_rate: int = 16000) -> None:
         wf.setsampwidth(2)
         wf.setframerate(sample_rate)
         wf.writeframes(pcm.tobytes())
+
+
+def _wav_b64(audio: np.ndarray, sample_rate: int = 16000) -> str:
+    """Encode float32 audio as base64 WAV for inline API uploads."""
+    pcm = (audio * 32767).astype(np.int16)
+    buf = io.BytesIO()
+    with wave.open(buf, "wb") as wf:
+        wf.setnchannels(1)
+        wf.setsampwidth(2)
+        wf.setframerate(sample_rate)
+        wf.writeframes(pcm.tobytes())
+    return base64.b64encode(buf.getvalue()).decode("ascii")
 
 
 def record_until_silence(
@@ -76,23 +104,129 @@ def record_until_silence(
 
 
 def transcribe_audio(audio: np.ndarray, language: str | None = None) -> str:
-    """Transcribe audio using the configured cloud STT provider."""
-    import os
+    """Transcribe audio using the configured STT provider chain.
+
+    Tries providers in order (primary from config, then fallbacks), with
+    per-provider retries for transient SSL/network blips. Returns the first
+    successful transcript, or a '[STT error: ...]' summary if all fail.
+    """
     if language is None:
         language = os.environ.get("LYDIA_LANG", "en")
     cfg = load_config().get("stt", {})
-    provider = cfg.get("provider", "groq")
+    primary = cfg.get("provider", "gemini")
+    chain = [(primary, cfg.get("model", "gemini-3.6-flash"))]
+    for fb in cfg.get("fallbacks", []) or []:
+        pk = fb.get("provider", "")
+        if pk and pk != primary:
+            chain.append((pk, fb.get("model", "")))
+    if not chain:
+        chain = [("gemini", "gemini-3.6-flash"), ("groq", "whisper-large-v3-turbo")]
 
-    if provider == "groq":
-        return _transcribe_groq(audio, cfg.get("model", "whisper-large-v3-turbo"), language)
+    errors: list[str] = []
+    for provider, model in chain:
+        for attempt in range(1, 4):
+            try:
+                if provider == "local":
+                    text, err = _transcribe_local(audio, model, language)
+                elif provider == "gemini":
+                    text, err = _transcribe_gemini(audio, model, language)
+                elif provider == "groq":
+                    text, err = _transcribe_groq(audio, model, language)
+                else:
+                    err = f"unknown provider '{provider}'"
+                    text = ""
+                if text and not err:
+                    return text
+                errors.append(f"{provider}: {err or 'empty transcript'}")
+                break  # definite API error — no point hammering it
+            except Exception as e:
+                errors.append(f"{provider} attempt {attempt}: {e}")
+                if attempt < 3:
+                    time.sleep(attempt)  # 1s, 2s backoff for transient network blips
+    return f"[STT error: {'; '.join(errors)}]"
 
-    return f"[STT error: unknown provider '{provider}']"
+
+def _get_local_model(model_name: str):
+    """Load faster-whisper once and reuse it across calls (model stays in RAM)."""
+    global _LOCAL_MODEL, _LOCAL_MODEL_NAME
+    if _LOCAL_MODEL is None or _LOCAL_MODEL_NAME != model_name:
+        from faster_whisper import WhisperModel
+        _LOCAL_MODEL = WhisperModel(model_name, device="cpu", compute_type="int8")
+        _LOCAL_MODEL_NAME = model_name
+    return _LOCAL_MODEL
 
 
-def _transcribe_groq(audio: np.ndarray, model: str, language: str) -> str:
+def warm_local_model() -> None:
+    """Preload the local STT model in the background so the first voice
+    command doesn't pay the cold-start cost (~20s+). Safe to call from a
+    daemon thread at boot — runs once and caches the model in RAM."""
+    try:
+        cfg = load_config().get("stt", {})
+        if cfg.get("provider") == "local":
+            _get_local_model(cfg.get("model", "small"))
+    except Exception as e:
+        print(f"[STT] local model warm-up failed: {e}")
+
+
+def _transcribe_local(audio: np.ndarray, model: str, language: str) -> tuple[str, str | None]:
+    """Transcribe on-device with faster-whisper. No network, no region blocking.
+
+    The default language hint ('en') is treated as auto-detect so mixed
+    Darija / French / Arabic / English speech still transcribes correctly.
+    An explicit non-default language (set via the UI language toggle) is
+    passed through to constrain whisper to that language.
+    """
+    try:
+        model_obj = _get_local_model(model or "small")
+        lang = None if language in ("en", "auto", "") else language
+        segments, _info = model_obj.transcribe(
+            np.asarray(audio, dtype=np.float32),
+            language=lang,
+            beam_size=1,
+            vad_filter=True,
+        )
+        text = " ".join(seg.text.strip() for seg in segments).strip()
+        return text, (None if text else "empty transcript")
+    except Exception as e:
+        return "", f"local STT error: {e}"
+
+
+def _transcribe_gemini(audio: np.ndarray, model: str, language: str) -> tuple[str, str | None]:
+    """Transcribe via Gemini's OpenAI-compatible endpoint. Returns (text, err)."""
+    api_key = load_dotenv().get("GEMINI_API_KEY", "")
+    if not api_key:
+        return "", "GEMINI_API_KEY not set in .env"
+    try:
+        from openai import OpenAI
+        client = OpenAI(base_url=_GEMINI_BASE, api_key=api_key, timeout=90.0)
+        lang_hint = f" The audio is in {language}." if language else ""
+        resp = client.chat.completions.create(
+            model=model,
+            messages=[{
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": (
+                        "Transcribe the speech in this audio clip exactly as spoken. "
+                        "Reply with ONLY the transcript — no quotes, no commentary." + lang_hint
+                    )},
+                    {"type": "input_audio", "input_audio": {
+                        "data": _wav_b64(audio), "format": "wav",
+                    }},
+                ],
+            }],
+            temperature=0.0,
+        )
+        text = (resp.choices[0].message.content or "").strip()
+        return text, (None if text else "empty transcript")
+    except Exception as e:
+        return "", f"Gemini STT error: {e}"
+
+
+def _transcribe_groq(audio: np.ndarray, model: str, language: str) -> tuple[str, str | None]:
+    """Transcribe via Groq Whisper. Returns (text, err)."""
     api_key = load_dotenv().get("GROQ_API_KEY", "")
     if not api_key:
-        return "[STT error: GROQ_API_KEY not set in .env]"
+        return "", "GROQ_API_KEY not set in .env"
 
     with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
         wav_path = f.name
@@ -110,10 +244,11 @@ def _transcribe_groq(audio: np.ndarray, model: str, language: str) -> str:
                 timeout=30,
             )
         if r.status_code == 200:
-            return r.json().get("text", "").strip()
-        return f"[STT error {r.status_code}: {r.text}]"
+            text = r.json().get("text", "").strip()
+            return text, (None if text else "empty transcript")
+        return "", f"HTTP {r.status_code}: {r.text[:140]}"
     except Exception as e:
-        return f"[STT error: {e}]"
+        return "", str(e)
     finally:
         try:
             Path(wav_path).unlink(missing_ok=True)

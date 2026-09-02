@@ -46,8 +46,13 @@ memory:
   chroma_path: memory_data/chroma
   top_k: 3
 stt:
-  provider: groq
-  model: whisper-large-v3-turbo
+  provider: local
+  model: small
+  fallbacks:
+  - provider: gemini
+    model: gemini-3.6-flash
+  - provider: groq
+    model: whisper-large-v3-turbo
 tts:
   provider: edge
   voice: en-US-AriaNeural
@@ -67,8 +72,8 @@ vision:
   provider: gemini
   model: gemini-3.6-flash
   fallbacks:
-    - provider: kimi
-      model: kimi-latest
+  - provider: kimi
+    model: kimi-latest
 tools:
   web_search:
     max_results: 5

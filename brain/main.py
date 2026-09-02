@@ -16,7 +16,7 @@ from brain.context import ContextManager
 from brain.events import broadcast
 from brain.llm import chat_with_tools
 from brain.memory import Memory
-from brain.stt import record_until_silence, transcribe_audio, set_abort_event
+from brain.stt import record_until_silence, transcribe_audio, set_abort_event, warm_local_model
 from brain.tts import speak, speak_streamed, is_speaking, stop_speaking
 from brain.tools.router import TOOL_SCHEMAS, dispatch
 from brain.wake import listen_for_wake_word
@@ -395,6 +395,9 @@ def main() -> None:
 
     start_web_background(port=port, host=host)
     start_discord_bot()
+    # Preload the local STT model in the background so the first voice
+    # command doesn't stall for ~20s while whisper loads.
+    threading.Thread(target=warm_local_model, daemon=True).start()
     threading.Thread(target=_keyboard_listener, daemon=True).start()
 
     if not os.environ.get("LYDIA_OPEN_UI") == "0":

@@ -135,12 +135,12 @@ def _pick_voice(cfg: dict, lang: str | None = None) -> str:
 
 
 def _speak_file(path: str) -> None:
-    if _MUTED.is_set():
+    if _MUTED.is_set() or _INTERRUPT.is_set():
         return
     audio = _pcm_from_mp3(path)
     if audio is None:
         return
-    if _MUTED.is_set():
+    if _MUTED.is_set() or _INTERRUPT.is_set():
         return
     _SPEAKING.set()
     sd.play(audio, samplerate=24000)
@@ -172,6 +172,11 @@ def speak(text: str) -> None:
         elif provider == "groq":
             _speak_groq(text, out_path, cfg)
         else:
+            return
+        # Newest message wins: if a stop/mute fired while the audio was being
+        # generated, drop it entirely — never play stale speech over the
+        # message that just came in.
+        if _MUTED.is_set() or _INTERRUPT.is_set():
             return
         _speak_file(out_path)
     finally:

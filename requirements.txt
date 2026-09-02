@@ -15,6 +15,10 @@ pillow>=10.0
 mss>=9.0
 ddgs>=3.0
 discord.py>=2.3
-# Optional: only if you want on-device wake word
-# openwakeword>=0.6.0
+# Local STT (default provider since 2026-09-02 — config.yaml stt.provider: local)
+faster-whisper>=1.0.3
+# On-device wake word (enabled by default in config.yaml wake_word.enabled: true)
+openwakeword>=0.6.0
+onnxruntime>=1.17
+# Optional: pyaudio only needed for custom audio input setups
 # pyaudio>=0.2.13

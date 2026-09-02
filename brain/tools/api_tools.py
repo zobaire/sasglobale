@@ -118,8 +118,8 @@ def spotify_search(query: str, limit: int = 5) -> str:
             return f"No Spotify tracks found for: {query}"
         lines = []
         for i, t in enumerate(items, 1):
-            artists = ", ".join(a["name"] for a in t["artists"])
-            lines.append(f"{i}. {t['name']} — {artists} ({t['duration_ms'] // 60000}:{((t['duration_ms'] // 1000) % 60):02d})")
+            artists = ", ".join(_clean_console_text(a["name"]) for a in t["artists"])
+            lines.append(f"{i}. {_clean_console_text(t['name'])} — {artists} ({t['duration_ms'] // 60000}:{((t['duration_ms'] // 1000) % 60):02d})")
         return "Found:\n" + "\n".join(lines)
     except Exception as e:
         return f"Spotify search error: {e}"
@@ -184,7 +184,7 @@ def discord_check() -> str:
         if r.status_code != 200:
             return f"Discord API error: {r.status_code}"
         data = r.json()
-        return (
+        return _clean_console_text(
             f"Discord: {data.get('name', 'Server')}\n"
             f"- Members: {data.get('approximate_member_count', '?')}\n"
             f"- Online: {data.get('approximate_presence_count', '?')}"
@@ -206,7 +206,7 @@ def _clean_console_text(s: str) -> str:
     out = []
     for ch in s:
         code = ord(ch)
-        if code < 0x10000 and ch != "\U000fe0ff":
+        if code < 0x10000 and ch != "\ufe0f":
             out.append(ch)
     return "".join(out)
 
@@ -249,8 +249,8 @@ def tebex_check() -> str:
 
         lines = [f"Tebex (SAS Scripts): {len(payments)} recent payments"]
         for p in payments[:5]:
-            player = p.get("player", {}).get("name", "Unknown")
-            pkgs = [pkg.get("name", "?") for pkg in p.get("packages", [])]
+            player = _clean_console_text(p.get("player", {}).get("name", "Unknown"))
+            pkgs = [_clean_console_text(pkg.get("name", "?")) for pkg in p.get("packages", [])]
             amount = p.get("amount", 0)
             try:
                 amount_f = float(amount)
@@ -270,7 +270,7 @@ def tebex_check() -> str:
         if new_count:
             lines.append(f"\n{new_count} new sale(s)!")
 
-        return "\n".join(lines)
+        return _clean_console_text("\n".join(lines))
     except Exception as e:
         return f"Tebex error: {e}"
 

@@ -115,8 +115,12 @@ def default_config() -> dict[str, Any]:
             "top_k": 3,
         },
         "stt": {
-            "provider": "groq",
-            "model": "whisper-large-v3-turbo",
+            "provider": "local",
+            "model": "small",
+            "fallbacks": [
+                {"provider": "gemini", "model": "gemini-3.6-flash"},
+                {"provider": "groq", "model": "whisper-large-v3-turbo"},
+            ],
         },
         "tts": {
             "provider": "edge",
