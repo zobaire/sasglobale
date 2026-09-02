@@ -1,8 +1,18 @@
-import asyncio, json
+import asyncio, json, os, urllib.request
 from playwright.async_api import async_playwright
 
 CONSOLE = []
 PAGE_ERRS = []
+SCRATCH = 'imports/_codetest.md'
+SCRATCH_BODY = '# code test scratch file\nThis file is edited and saved by the coding-mode E2E test.\n'
+
+def ensure_scratch():
+    # Create the scratch file directly if it doesn't exist yet, so this test
+    # is self-sufficient and never edits a real project file.
+    if os.path.exists(SCRATCH):
+        return
+    with open(SCRATCH, 'w', encoding='utf-8') as f:
+        f.write(SCRATCH_BODY)
 
 def dump_logs(tag):
     print(f"\n--- {tag} ---")
@@ -16,6 +26,7 @@ def dump_logs(tag):
         print("(no page errors)")
 
 async def main():
+    ensure_scratch()
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
         page = await browser.new_page(viewport={"width": 2560, "height": 1440})
@@ -132,3 +143,8 @@ except Exception:
     for e in PAGE_ERRS:
         print(e)
     raise
+finally:
+    try:
+        os.remove(SCRATCH)
+    except FileNotFoundError:
+        pass
