@@ -8,6 +8,9 @@ on a new machine. Every section points at the actual file to touch.
 
 ## A. Quick UI bug fixes (frontend, ~1 hour total)
 
+Status: DONE 2026-09-02 (commit 36399e6). A1's backend half needs a Lydia
+restart to load (frontend halves A2-A5 are live per page refresh).
+
 ### A1. Status orb stuck on "thinking" after every text chat reply
 - Symptom: after you TYPE a message, the orb keeps pulsing "thinking" until
   your next interaction. Voice path is fine because it broadcasts
@@ -164,7 +167,8 @@ that minimized LYDIA_BACKEND window.
 ---
 
 ## Definition of done for this pass
-- [ ] A1-A5 done -> orb never sticks, graph keeps bubbles, thoughts readable
+- [x] A1-A5 done -> orb never sticks, graph keeps bubbles, thoughts readable
+      (A1 backend half pending a Lydia restart)
 - [ ] B1-B3 done -> open a folder, browse, edit, save to real disk, no
       full-page reloads needed
 - [ ] C1 done -> code answers render with highlight + copy
