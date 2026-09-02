@@ -165,6 +165,26 @@ def _translate_event(evt: dict) -> dict | None:
     return evt
 
 
+def _speak_response_bg(response: str) -> None:
+    """Speak a chat reply with status broadcasts so the orb cycles
+    talking -> connected (mirrors the voice path in _handle_wake_inner).
+
+    The chat WebSocket path never broadcast any status around TTS, so after
+    every typed message the orb stayed on "thinking" until the next
+    interaction. This broadcasts Speaking... right before TTS starts and
+    Ready. once the stream finishes (or immediately if muted).
+    """
+    from brain.events import broadcast
+    if is_muted():
+        broadcast({"type": "status", "message": "Ready."})
+        return
+    broadcast({"type": "status", "message": "Speaking..."})
+    try:
+        interrupt_and_speak(response)
+    finally:
+        broadcast({"type": "status", "message": "Ready."})
+
+
 def broadcast_to_ws(event: dict) -> None:
     evt = _translate_event(event)
     if evt is None or _loop is None or _loop.is_closed():
@@ -464,7 +484,9 @@ async def websocket_endpoint(ws: WebSocket):
                     _running_future = None
                 if response:
                     # Newest message wins: interrupt any current speech, then speak.
-                    threading.Thread(target=interrupt_and_speak, args=(response,), daemon=True).start()
+                    # _speak_response_bg broadcasts Speaking.../Ready. around TTS so
+                    # the orb doesn't stay stuck on "thinking" after a typed reply.
+                    threading.Thread(target=_speak_response_bg, args=(response,), daemon=True).start()
                 else:
                     await ws.send_text(json.dumps({"type": "status", "text": "connected"}))
 

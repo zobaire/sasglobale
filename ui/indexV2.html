@@ -477,9 +477,11 @@
 
 <script>
 const $ = id => document.getElementById(id);
-let ws, deepEl=null;
+let ws;
 let streamEl=null;   // the in-progress streaming assistant bubble
 let remembered=[];
+let lastRoutines=[], lastNotes='';   // cached from the state event so memory/import bubbles don't wipe the graph
+let reasonEl=null;   // the in-progress streaming "thought" bubble (one per turn)
 
 function escapeHtml(s){return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
@@ -494,8 +496,15 @@ function initGraph(){
   host.appendChild(cv);
   graphCtx=cv.getContext('2d');
   function size(){
-    graphW=cv.width=window.innerWidth;
-    graphH=cv.height=window.innerHeight;
+    // Scale the backing store by devicePixelRatio so neon glow stays crisp
+    // on hi-DPI displays. Drawing coordinates stay CSS pixels thanks to the
+    // ctx transform, so stepGraph/hitTest don't need to change.
+    const dpr=window.devicePixelRatio||1;
+    graphW=window.innerWidth;
+    graphH=window.innerHeight;
+    cv.width=Math.round(graphW*dpr);
+    cv.height=Math.round(graphH*dpr);
+    graphCtx.setTransform(dpr,0,0,dpr,0,0);
   }
   size();
   window.addEventListener('resize', size);
@@ -700,7 +709,7 @@ function connect(){
     ws=new WebSocket(`${proto}//${location.host}/ws${tok}`);
     ws.onopen=()=>setStatus('connected');
     ws.onclose=()=>{setStatus('disconnected — retrying');setTimeout(connect,1500);};
-    ws.onmessage=e=>handle(JSON.parse(e.data));
+    ws.onmessage=e=>{try{handle(JSON.parse(e.data));}catch(err){console.warn('bad ws frame:',e.data,err);}};
   }).catch(()=>{setStatus('offline — token refused');setTimeout(connect,2500);});
 }
 let curListening=true;
@@ -752,7 +761,7 @@ function chatBubble(cls,text){
 }
 function handle(evt){
   switch(evt.type){
-    case 'user': streamEl=null; add($('chat'),chatBubble('msg user',evt.text)); break;
+    case 'user': streamEl=null; reasonEl=null; add($('chat'),chatBubble('msg user',evt.text)); break;
     case 'assistant_delta': {
       // Live streaming of the final answer — append tokens to the current bubble.
       $('typingbar').classList.remove('show');
@@ -775,6 +784,7 @@ function handle(evt){
       // Final full text. If we were streaming into a bubble, finalize it in
       // place (no duplicate); otherwise render a fresh one.
       $('typingbar').classList.remove('show');
+      reasonEl=null; // this turn's reasoning stream is done — future deltas open a fresh bubble
       if(streamEl && streamEl.isConnected){
         streamEl.dataset.raw=evt.text;
         streamEl.textContent=evt.text;
@@ -789,23 +799,41 @@ function handle(evt){
       streamEl=null;
       break;
     case 'status': setStatus(evt.text); break;
-    case 'thought':
-      add($('thoughtscroll'),bubble('thought'+(evt.stream_start?' deepthink':''),evt.text));
-      if(evt.stream_start){deepEl=bubble('thought deepthink','');add($('thoughtscroll'),deepEl);} break;
-    case 'thought_delta':
-      if(!deepEl){deepEl=bubble('thought deepthink','');add($('thoughtscroll'),deepEl);}
-      deepEl.textContent+=evt.text||'';$('thoughtscroll').scrollTop=$('thoughtscroll').scrollHeight; break;
-    case 'tool':{deepEl=null;const el=bubble('tool',`→ ${evt.name}(${JSON.stringify(evt.args)})`);el.dataset.tool=evt.name;add($('thoughtscroll'),el);break;}
+    case 'thought': {
+      // Complete (non-streaming) thought — show as a static bubble.
+      add($('thoughtscroll'), bubble('thought', evt.text||''));
+      break;
+    }
+    case 'thought_delta': {
+      // Streaming reasoning — ONE bubble per turn so it stays readable.
+      const sc=$('thoughtscroll');
+      if(!reasonEl || !reasonEl.isConnected){
+        reasonEl=bubble('thought deepthink','');
+        add(sc, reasonEl);
+      }
+      reasonEl.textContent+=evt.text||'';
+      // only auto-scroll when the user is already at the bottom, so you can
+      // scroll up to read earlier reasoning while the stream is still going
+      if(sc.scrollTop + sc.clientHeight >= sc.scrollHeight - 8){
+        sc.scrollTop=sc.scrollHeight;
+      }
+      break;
+    }
+    case 'tool':{const el=bubble('tool',`→ ${evt.name}(${JSON.stringify(evt.args)})`);el.dataset.tool=evt.name;add($('thoughtscroll'),el);break;}
     case 'tool_result':{const t=$('thoughtscroll').querySelectorAll('.tool');const last=t[t.length-1];
       if(last&&last.dataset.tool===evt.name&&!last.querySelector('.res')){const r=document.createElement('span');r.className='res';r.textContent=evt.text;last.appendChild(r);}break;}
     case 'state':
       remembered=evt.remembered||[];
-      updateGraph(evt.routines, evt.notes, remembered);
+      lastRoutines=evt.routines||[];
+      lastNotes=evt.notes||'';
+      updateGraph(lastRoutines, lastNotes, remembered);
       renderMemory(remembered); break;
     case 'memory':
-      // A new "remember" bubble just landed — add it live.
+      // A new "remember" bubble just landed — add it live, but pass the
+      // cached routine/note lists so updateGraph doesn't rebuild the graph
+      // WITHOUT them (that wiped every routine/note bubble until reload).
       remembered.push({text:evt.text});
-      updateGraph([], '', remembered);
+      updateGraph(lastRoutines, lastNotes, remembered);
       renderMemory(remembered);
       break;
     case 'lang': curLang=evt.lang; $('lang').textContent=(evt.lang==='zh'?'中文':'EN');
