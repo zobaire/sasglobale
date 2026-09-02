@@ -334,6 +334,37 @@
   #thoughts{transition:opacity .2s ease,transform .2s ease;}
   body.code-open #thoughts{opacity:0;pointer-events:none;transform:scale(.98);}
 
+  /* ---------- focus / zen: hide the brain panels for a clean chat+coding view ---------- */
+  #thoughts,#schedule-panel,#memory-panel{transition:opacity .25s ease,transform .25s ease,visibility .25s;}
+  body.focus #thoughts,body.focus #schedule-panel,body.focus #memory-panel{opacity:0;visibility:hidden;pointer-events:none;transform:scale(.97);}
+  #zen.on{border-color:var(--cool);color:var(--cool);background:rgba(125,227,208,0.12);box-shadow:0 0 18px rgba(125,227,208,0.45);}
+  #zen:hover{color:var(--cool);border-color:var(--cool-dim);}
+
+  /* ---------- Coding Mode: fullscreen takeover ---------- */
+  #codedock.open,#codedock.full{transition:transform .22s ease,opacity .18s ease,width .22s ease,top .22s ease,right .22s ease,bottom .22s ease,border-radius .22s ease;}
+  #codedock.full{top:0;right:0;bottom:0;width:100vw;max-width:100vw;border-radius:0;border:none;z-index:70;box-shadow:var(--shadow-deep);}
+  #codedock.full::before{border-radius:0;}
+  #codedock.full .cd-tree{width:290px;}
+  #codedock.full .cd-head{padding:14px 18px;}
+  #codedock.full .cd-btn{width:32px;height:32px;}
+  #codedock.full .cd-statusbar{padding:9px 18px;}
+  /* fullscreen coding = pure IDE over the living graph; everything else steps out */
+  body.code-full #hud,body.code-full #batteries,body.code-full #thoughts,body.code-full #schedule-panel,body.code-full #memory-panel,body.code-full #hint,body.code-full #detail,body.code-full #chatwrap{opacity:0 !important;visibility:hidden !important;pointer-events:none !important;}
+  body.code-full #chatwrap.chat-peek{opacity:1 !important;visibility:visible !important;pointer-events:auto !important;left:50%;transform:translateX(-50%);bottom:18px;width:min(760px,calc(100vw - 380px));max-height:64vh;z-index:85;}
+  body.code-full #chatwrap.chat-peek #chat{max-height:36vh;}
+  #chatwrap{transition:opacity .22s ease,transform .22s ease,visibility .22s;}
+  /* chat pill — coding fullscreen, chat tucked away */
+  #chatpill{position:fixed;left:18px;bottom:18px;z-index:80;display:none;align-items:center;gap:9px;padding:10px 18px;background:var(--panel);border:1px solid var(--accent-dim);border-radius:26px;color:var(--paper);font-family:var(--mono);font-size:11px;letter-spacing:2px;cursor:pointer;user-select:none;box-shadow:var(--shadow-deep),0 0 22px rgba(90,116,208,0.35);backdrop-filter:blur(var(--glass-blur));-webkit-backdrop-filter:blur(var(--glass-blur));}
+  #chatpill:hover{color:var(--cool);border-color:var(--cool-dim);box-shadow:var(--shadow-deep),0 0 28px rgba(125,227,208,0.45);}
+  #chatpill .cdot{width:8px;height:8px;border-radius:50%;background:var(--cool);box-shadow:0 0 10px var(--cool);flex:none;}
+  body.code-full:not(.chat-peek) #chatpill{display:flex;}
+  /* chat overlay close button */
+  .chat-x{position:absolute;top:10px;right:10px;z-index:6;width:26px;height:26px;border:1px solid var(--line);background:rgba(10,14,28,0.7);color:var(--dim);font-size:12px;line-height:1;cursor:pointer;display:none;place-items:center;border-radius:9px;padding:0;font-family:var(--mono);backdrop-filter:blur(8px);}
+  .chat-x:hover{color:var(--alert);border-color:var(--alert-dim);}
+  body.code-full #chatwrap.chat-peek .chat-x{display:grid;}
+  /* toasts must stay visible above the fullscreen dock */
+  #toast{z-index:96;}
+
   /* ---------- Coding Mode: file tree rows ---------- */
   #cdtree{width:236px;font-family:var(--mono);}
   .cdt-row{display:flex;align-items:center;gap:6px;padding:3px 7px;border-radius:7px;cursor:pointer;
@@ -398,6 +429,9 @@
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
       <input type="file" id="fileinput" multiple style="display:none;">
     </label>
+    <button type="button" id="zen" class="cbtn" title="Focus — clean chat view">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.4"/></svg>
+    </button>
     <button type="button" id="codebtn" class="cbtn" title="Open Coding Mode (Ctrl+B)">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
     </button>
@@ -409,6 +443,7 @@
     <button type="button" id="stop" class="cbtn" title="Stop talking">&#9632;</button>
     <button id="send" class="cbtn" title="Send">&#10148;</button>
   </form>
+  <button type="button" id="chatx" class="chat-x" title="Hide chat (Esc)">&#10005;</button>
 </div>
 
 <div id="detail">
@@ -418,6 +453,8 @@
 </div>
 
 <div id="hint">click a node for details · <span id="clock"></span></div>
+
+<button type="button" id="chatpill"><span class="cdot"></span>CHAT</button>
 
 <!-- Schedule / Plans panel -->
 <div id="schedule-panel">
@@ -467,6 +504,9 @@
       </button>
       <button type="button" id="cdsave" class="cd-btn" title="Save (Ctrl+S)">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+      </button>
+      <button type="button" id="cdfull" class="cd-btn" title="Fullscreen coding (whole screen)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
       </button>
       <button type="button" id="cdclose" class="cd-btn cd-close" title="Close (Ctrl+B)">&#10005;</button>
     </div>
@@ -1018,8 +1058,23 @@ let curMuted=false;
 $('mute').onclick=()=>{if(ws&&ws.readyState===1)ws.send(JSON.stringify({type:'set_mute',muted:!curMuted}));};
 $('listenmute').onclick=()=>{if(ws&&ws.readyState===1)ws.send(JSON.stringify({type:'set_listen',listening:!curListening}));};
 
+/* ---------- focus / zen: hide the brain panels (memory · thoughts · plans) ---------- */
+let focusMode=true;
+try{ if(localStorage.getItem('lydia.focus.v1')==='0') focusMode=false; }catch(e){}
+function setFocus(on){
+  focusMode=on;
+  document.body.classList.toggle('focus',on);
+  $('zen').classList.toggle('on',on);
+  $('zen').title=on?'Focus — clean chat view (click to show memory · thoughts · plans)':'Show brain panels';
+  try{ localStorage.setItem('lydia.focus.v1', on?'1':'0'); }catch(e){}
+}
+$('zen').onclick=()=>setFocus(!focusMode);
+setFocus(focusMode);
+
 /* ---------- Coding Mode dock (toggle + lazy CodeMirror + file tree) ---------- */
 let codingOpen=false;
+let codingFull=false;   // dock expanded to fullscreen IDE
+let chatPeek=false;     // chat overlay open while coding fullscreen
 let codeDockLoaded=false, codeDockLoading=null;
 
 function loadCodeDock(){
@@ -1034,6 +1089,25 @@ function loadCodeDock(){
   return codeDockLoading;
 }
 
+const ICO_EXPAND='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>';
+const ICO_COMPRESS='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v3a2 2 0 0 1-2 2H3"/><path d="M21 8h-3a2 2 0 0 1-2-2V3"/><path d="M3 16h3a2 2 0 0 1 2 2v3"/><path d="M16 21v-3a2 2 0 0 1 2-2h3"/></svg>';
+
+function setCodingFull(full){
+  codingFull=full;
+  $('codedock').classList.toggle('full',full);
+  document.body.classList.toggle('code-full',full);
+  if(!full) setChatPeek(false);
+  $('cdfull').innerHTML = full?ICO_COMPRESS:ICO_EXPAND;
+  $('cdfull').title = full?'Show docked panel (Esc)':'Fullscreen coding (whole screen)';
+  if(codingOpen && window.CodeDock) window.CodeDock.onDockToggle(true);
+}
+
+function setChatPeek(open){
+  chatPeek=open;
+  $('chatwrap').classList.toggle('chat-peek',open);
+  if(open) setTimeout(()=>{ if(chatPeek) $('box').focus(); },60);
+}
+
 function setCoding(open){
   if(!open && window.CodeDock && window.CodeDock.hasDirty()){
     if(!confirm('You have unsaved changes in Coding Mode. Close anyway?')) return;
@@ -1044,18 +1118,26 @@ function setCoding(open){
   $('codebtn').title=open?'Close Coding Mode (Ctrl+B)':'Open Coding Mode (Ctrl+B)';
   document.body.classList.toggle('code-open',open);
   if(open){
+    setCodingFull(true); // coding mode opens as the whole-screen IDE
     ensureTreeLoaded();
     loadCodeDock().then(dock=>{ if(dock && codingOpen) dock.onDockToggle(true); });
+  } else {
+    setCodingFull(false); // clears body.code-full + chat peek
   }
 }
 $('codebtn').onclick=()=>setCoding(!codingOpen);
 $('cdclose').onclick=()=>setCoding(false);
+$('cdfull').onclick=()=>setCodingFull(!codingFull);
+$('chatpill').onclick=()=>setChatPeek(true);
+$('chatx').onclick=()=>setChatPeek(false);
 document.addEventListener('keydown', e=>{
   if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='b'){
     e.preventDefault();
     setCoding(!codingOpen);
-  } else if(e.key==='Escape' && codingOpen){
-    setCoding(false);
+  } else if(e.key==='Escape'){
+    if(codingOpen && codingFull && chatPeek){ setChatPeek(false); }      // chat overlay → back to pure IDE
+    else if(codingOpen && codingFull){ setCodingFull(false); }           // fullscreen → docked panel
+    else if(codingOpen){ setCoding(false); }                             // docked → back to chat
   }
 });
 
@@ -1316,11 +1398,12 @@ $('box').addEventListener('keydown', e=>{
     $('detail').classList.remove('show');
   }
 });
-/* Ctrl+K focuses the input from anywhere */
+/* Ctrl+K focuses the input from anywhere (pops the chat open if coding is fullscreen) */
 document.addEventListener('keydown', e=>{
   if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='k'){
     e.preventDefault();
-    $('box').focus();
+    if(codingOpen && codingFull && !chatPeek) setChatPeek(true);
+    setTimeout(()=>$('box').focus(),40);
   }
 });
 

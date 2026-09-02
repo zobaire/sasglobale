@@ -177,6 +177,46 @@ that minimized LYDIA_BACKEND window.
 
 ---
 
+## E. Focus mode + fullscreen coding IDE (added 2026-09-02)
+
+Status: DONE in `ui/indexV2.html` (backend untouched). Served live per
+refresh, no restart needed. JS syntax verified with `node --check`; server
+serves the updated page (checked 127.0.0.1:8765).
+
+What changed, in one file:
+1. **Focus / zen toggle** — new `#zen` button in the composer (target icon).
+   `body.focus` fades out Memory, Thoughts and Plans panels (they keep
+   updating in the background; state is untouched). Default ON — matches
+   the "clean chat + coding + graph" request. State persists in
+   `localStorage['lydia.focus.v1']`. Click again to bring the brain panels
+   back for demos.
+2. **Coding Mode opens FULLSCREEN** — `</>` (or Ctrl+B) now enters a
+   whole-screen IDE (`#codedock.full`, z-index 70): `top/right/bottom 0`,
+   `width 100vw`, radius 0, tree widens to 290px, header/status padded.
+   `body.code-full` hides HUD, batteries, thoughts, plans, memory, hint,
+   detail popup and the chat panel so it's pure code over the living graph
+   (the dock glass is translucent — animation still glows behind it).
+3. **Chat while coding** — chat tucks into a `#chatpill` (bottom-left,
+   visible when fullscreen & chat tucked). Clicking it pops `#chatwrap`
+   back as an overlay (`.chat-peek`, bottom-center, z-index 85, max-height
+   64vh) with a `#chatx` close button. Voice still works with chat hidden.
+4. **Esc / toggle chain** — Ctrl+B or `</>` opens/closes coding (always
+   opens full). `#cdfull` (⛶/▣ in the dock header) shrinks fullscreen back
+   to the old 560px docked panel or expands again. Esc walks down:
+   chat overlay -> docked panel -> closed.
+5. Ctrl+K pops the chat open (if tucked) and focuses the input.
+6. `#toast` raised to z-index 96 so save errors / model toasts show above
+   the fullscreen dock.
+
+CSS notes for future edits:
+- `#codedock.open,#codedock.full` carries the geometry transition
+  (width/top/right/bottom/border-radius) — plain `#codedock` would lose the
+  specificity battle to `#codedock.open`.
+- `body.code-full #chatwrap.chat-peek` must stay !important to beat the
+  `body.code-full #chatwrap` hidden rule.
+
+---
+
 ## Definition of done for this pass
 - [x] A1-A5 done -> orb never sticks, graph keeps bubbles, thoughts readable
       (A1 backend half pending a Lydia restart)
@@ -185,5 +225,9 @@ that minimized LYDIA_BACKEND window.
       `Lydia`/`fate's-pair`, file opens in a CodeMirror tab, Ctrl+S writes
       back to real disk via POST /api/code/save, Ctrl+B closes clean,
       zero console/page errors)
+- [x] E done -> focus mode hides brain panels; Coding Mode opens as a
+      fullscreen IDE; chat tucks into a pill and pops open on demand;
+      Esc/⛶ walk the states (verified: server serves the updated page,
+      node --check passes)
 - [ ] C1 done -> code answers render with highlight + copy
 - [ ] D: fresh laptop boots Lydia to "ready at http://localhost:8765"
